@@ -1,15 +1,21 @@
-import datasets
-import torch
-import torch.nn as nn
+"""
+Multitask Transformers is an implementation of multitask learning for HuggingFace Transformers module
+"""
+
+from collections import UserDict
+from typing import Type, Any, Callable, Optional, Iterable, Dict, List, Union
+
 import numpy as np
-from typing import *
-import multiprocessing as mp
-from transformers import PreTrainedModel, PretrainedConfig, Trainer
-from torch.utils.data.dataloader import DataLoader
-from transformers.data.data_collator import DefaultDataCollator, InputDataClass
+
+import torch
+from torch import nn
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data.sampler import RandomSampler
-from collections import UserDict
+from torch.utils.data.dataloader import DataLoader
+
+import datasets
+from transformers import PreTrainedModel, PretrainedConfig, Trainer
+from transformers.data.data_collator import DefaultDataCollator, InputDataClass
 
 
 class Task:
@@ -22,18 +28,17 @@ class Task:
                  data: datasets.DatasetDict, name: Optional[str] = None) -> None:
         """
         Checking task fields for compatibility with other components of multitask learner
-        :param cls:
-        :param config:
-        :param converter_to_features:
-        :param data:
-        :param name:
+        :param cls: Represents base Transformer & added layers(ex: transformers.AutoModelForSequenceClassification)
+        :param config: Model configuration(ex: transformers.AutoConfig.from_pretrained(base_model_name, num_labels = 2))
+        :param converter_to_features: Maps single sample of data to features for forward call in transformers
+        :param data: Some splitted into parts (ex: train, test) dataset that can be used with the mapper to features
+        :param name: Optional name for verbose messages (ex: "SNLI")
         """
         attr = getattr(cls, "from_pretrained", None)
         if attr:
             assert callable(attr), "cls is expected to have \"from_pretrained\" method"
         self.cls = cls
-        assert issubclass(
-            PretrainedConfig), "config is expected to be a subclass of PretrainedConfig"
+        assert issubclass(type(config), PretrainedConfig), "config is expected to be a subclass of PretrainedConfig"
         self.config = config
         msg = "converter_to_features is expected to be a callable, with Iterable[Any] " \
               "arg representing batch and returning features: UserDict | " \
@@ -48,6 +53,10 @@ class Task:
 
 
 class MultitaskModel(PreTrainedModel):
+    """
+    Multitask analogue to transformers *Model* classes
+    """
+
     def __init__(self, encoder, task_models):
         super().__init__(PretrainedConfig())
         self.encoder = encoder
@@ -63,7 +72,7 @@ class MultitaskModel(PreTrainedModel):
         :return: MultitaskModel with initialized shared encoder and task_models
         """
         shared_encoder = None
-        task_models = dict()
+        task_models = {}
         for name, task in tasks.items():
             model = task.cls.from_pretrained(base_model_name, config=task.config)
             if shared_encoder is None:
@@ -74,7 +83,7 @@ class MultitaskModel(PreTrainedModel):
         return cls(encoder=shared_encoder, task_models=task_models)
 
     @classmethod
-    def get_encoder_attr_name(cls, model):  # TODO: types, why class method? seems like static method
+    def get_encoder_attr_name(cls, model):
         """
         The encoder transformer is named differently in each model "architecture".
         This method lets us get the name of the encoder attribute
@@ -82,12 +91,11 @@ class MultitaskModel(PreTrainedModel):
         name = model.__class__.__name__
         if name.startswith("Bert"):
             return "bert"
-        elif name.startswith("Roberta"):
+        if name.startswith("Roberta"):
             return "roberta"
-        elif name.startswith("Albert"):
+        if name.startswith("Albert"):
             return "albert"
-        else:
-            raise NotImplementedError(f"Add support for new model {name}")
+        raise NotImplementedError(f"Add support for new model {name}")
 
     def forward(self, task_name: str, *args, **kwargs):
         """
@@ -101,56 +109,24 @@ class MultitaskModel(PreTrainedModel):
         return self.task_models[task_name](*args, **kwargs)
 
 
-def make_features(tasks: Dict[str, Task], num_proc: int = mp.cpu_count(),
-                  fields: Iterable[str] = ('input_ids', 'attention_mask', 'labels'), *map_args, **map_kwargs) \
-        -> Dict[str, Dict[str, datasets.Dataset]]:
-    features = dict()
-    for name, task in tasks.items():
-        features[name] = dict()
-        for split_name, split_dataset in task.data.items():
-            features[name][split_name] = split_dataset.map(
-                task.converter,
-                *map_args,
-                batched=True,
-                load_from_cache_file=False,
-                num_proc=num_proc,
-                **map_kwargs
-            )
-            features[name][split_name].set_format(type="torch", columns=fields)
-    return features
-
-
-def unpack_splits(features: Dict[str, Dict[str, datasets.Dataset]],
-                  *split_names: Tuple[str]) -> Tuple[Dict[str, datasets.Dataset]]:
-    """
-    Separate multitask features into taskwise dict(task_name:dataset) or
-    if unpackable tuple of this dicts for each split in *split_names
-    :param features: Multitask features dict(for example: make_features(...))
-    :param *split_names: Names of splits to aggregate
-    :return: Single dict or multiple packed in a tuple for each split
-    """
-    assert len(split_names), IndexError("Expected at least 1 split name (for example \"train\")")
-    result = []
-    for split_name in split_names:
-        result.append({task_name: dataset[split_name] for task_name, dataset in features.items()})
-    return tuple(result) if len(result) > 1 else result[0]
-
-
 class NLPDataCollator(DefaultDataCollator):
     """
     Extending the existing DataCollator to work with NLP dataset batches
     """
 
     def collate_batch(self, features: List[Union[InputDataClass, Dict]]) -> Dict[str, torch.Tensor]:
+        """
+        Collates batch into usable by training code structures
+        """
         first = features[0]
         if isinstance(first, dict):
             # NLP data sets current works presents features as lists of dictionary
             # (one per example), so we  will adapt the collate_batch logic for that
             if "labels" in first and first["labels"] is not None:
                 if first["labels"].dtype == torch.int64:
-                    labels = torch.tensor([f["labels"] for f in features], dtype=torch.long)
+                    labels = torch.Tensor([f["labels"] for f in features], dtype=torch.long)
                 else:
-                    labels = torch.tensor([f["labels"] for f in features], dtype=torch.float)
+                    labels = torch.Tensor([f["labels"] for f in features], dtype=torch.float)
                 batch = {"labels": labels}
             for k, v in first.items():
                 if k != "labels" and v is not None and not isinstance(v, str):
@@ -169,6 +145,9 @@ class StrIgnoreDevice(str):
     """
 
     def to(self, device):
+        """
+        Just doing nothing, called by transformers.Trainer
+        """
         return self
 
 
@@ -236,6 +215,10 @@ class MultitaskDataloader:
 
 
 class MultitaskTrainer(Trainer):
+    """
+    Multitask alternative of transformers.Trainer
+    """
+
     def get_single_train_dataloader(self, task_name: str, train_dataset) -> DataLoaderWithTaskName:
         """
         Create a single-task data loader that also yields task names
@@ -300,8 +283,7 @@ class MultitaskTrainer(Trainer):
             task_name: self.get_single_eval_dataloader(task_name, task_dataset)
             for task_name, task_dataset in eval_dataset.items()
         })
-        # If this is not set explicitly
-        # | AttributeError: 'MultitaskDataloader' object has no attribute 'batch_size'
-        # | [issue] https://github.com/s1m0000n/multitask-transformers/issues/2
+        # TODO: if not set explicitly here => AttributeError: 'MultitaskDataloader' object has no attribute 'batch_size'
+        # -> https://github.com/s1m0000n/multitask-transformers/issues/2
         mt_dataloader.batch_size = 32
         return mt_dataloader

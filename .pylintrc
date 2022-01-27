@@ -88,7 +88,10 @@ disable=raw-checker-failed,
         use-symbolic-message-instead,
         fixme,
         too-many-arguments,
-        too-few-public-methods
+        too-few-public-methods,
+        too-many-locals,
+        too-many-branches,
+        unsubscriptable-object
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
@@ -397,7 +400,7 @@ good-names=i,
 
 # Good variable names regexes, separated by a comma. If names match any regex,
 # they will always be accepted
-good-names-rgxs=
+good-names-rgxs=df
 
 # Include a hint for the correct naming format with invalid-name.
 include-naming-hint=no
@@ -557,7 +560,7 @@ max-public-methods=20
 max-returns=6
 
 # Maximum number of statements in function / method body.
-max-statements=50
+max-statements=100
 
 # Minimum number of public methods for a class (see R0903).
 min-public-methods=2
