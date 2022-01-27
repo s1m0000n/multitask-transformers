@@ -10,7 +10,6 @@ from transformers.data.data_collator import DefaultDataCollator, InputDataClass
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data.sampler import RandomSampler
 from collections import UserDict
-from utils import method, subcls, fassert
 
 
 class Task:
@@ -29,21 +28,22 @@ class Task:
         :param data:
         :param name:
         """
-        # FIX: fassert -> normal Pythonic code
-        # -> https://github.com/s1m0000n/multitask-transformers/issues/13
-        self.cls = fassert(method("from_pretrained") @ cls, cls,
-                           "cls is expected to have \"from_pretrained\" method")
-        self.config = fassert(subcls(config) @ PretrainedConfig, config,
-                              "config is expected to be a subclass of PretrainedConfig")
-        self.converter = fassert(callable(converter_to_features), converter_to_features,
-                                 "converter_to_features is expected to be a callable, "
-                                 "with Iterable[Any] arg representing batch and "
-                                 "returning features: UserDict | "
-                                 "transformers.BatchEncoding to be used with "
-                                 "forward method of transformers")
-        # FIX: normal assertion message
-        # -> https://github.com/s1m0000n/multitask-transformers/issues/13
-        self.data = fassert(isinstance(data, datasets.DatasetDict), data, "Implement me!")
+        attr = getattr(cls, "from_pretrained", None)
+        if attr:
+            assert callable(attr), "cls is expected to have \"from_pretrained\" method"
+        self.cls = cls
+        assert issubclass(
+            PretrainedConfig), "config is expected to be a subclass of PretrainedConfig"
+        self.config = config
+        msg = "converter_to_features is expected to be a callable, with Iterable[Any] " \
+              "arg representing batch and returning features: UserDict | " \
+              "transformers.BatchEncoding to be used with forward method of transformers"
+        assert callable(converter_to_features), msg
+        self.converter = converter_to_features
+        msg = "data is expected to be a dict of dataset with splits " \
+              "(like train, val, test)"
+        assert isinstance(data, datasets.DatasetDict), msg
+        self.data = data
         self.name = name or "Untitled"
 
 
@@ -118,6 +118,7 @@ def make_features(tasks: Dict[str, Task], num_proc: int = mp.cpu_count(),
             )
             features[name][split_name].set_format(type="torch", columns=fields)
     return features
+
 
 def unpack_splits(features: Dict[str, Dict[str, datasets.Dataset]],
                   *split_names: Tuple[str]) -> Tuple[Dict[str, datasets.Dataset]]:

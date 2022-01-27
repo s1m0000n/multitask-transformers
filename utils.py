@@ -7,57 +7,6 @@ T1 = TypeVar('T1')
 T2 = TypeVar('T21')
 
 
-class attr:
-    """
-    attr("len") @ str # check if attribute len is in string
-    """
-    def __init__(self, name: str):
-        self.name = name
-
-    def __matmul__(self, cls: Any) -> bool:
-        return getattr(cls, self.name, None) is not None
-
-
-class method:
-    """
-    method("append") @ [1,2,3] # check if append is a callable attribute at list class / instance
-    """
-    def __init__(self, name: str):
-        self.name = name
-
-    def __matmul__(self, cls: Any) -> bool:
-        return callable(getattr(cls, self.name, None))
-
-
-class subcls:
-    """
-    subcls(Tuple) @ List => False # check if class Tuple(List): ...
-    """
-    def __init__(self, cls: Any):
-        self.t = type(cls)
-
-    def __matmul__(self, other: Any):
-        return issubclass(self.t, other)
-
-
-def fassert(test_value: bool, success_value: T, msg: Optional[str] = None) -> T:
-    """
-    Combined assert with returning value of ok
-
-    Example: x = fassert(isinstance(data, int), data, "expected integer")
-
-    :param test_value: value to be asserted
-    :param success_value: return value if test_value == True
-    :param msg: assertion message if test_value == False
-    :return: success_value / AssertionError
-    """
-    if msg:
-        assert test_value, msg
-    else:
-        assert test_value
-    return success_value
-
-
 def download(url: str, destination_folder: str):
     if not os.path.exists(destination_folder):
         os.makedirs(destination_folder)  # create folder if it does not exist
