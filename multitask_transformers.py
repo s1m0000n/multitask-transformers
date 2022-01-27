@@ -84,15 +84,20 @@ def make_features(tasks: Dict[str, Task], num_proc: int = mp.cpu_count(),
             features[name][split_name].set_format(type="torch", columns=fields)
     return features
 
-
-def extract_multitask_splits(features: Dict[str, Dict[str, datasets.Dataset]], split: str) -> Dict[str, datasets.Dataset]:
+def unpack_splits(features: Dict[str, Dict[str, datasets.Dataset]],
+                  *split_names: Tuple[str]) -> Tuple[Dict[str, datasets.Dataset]]:
     """
-    Extract features of split for each task for MultitaskSplittedFeatures
-    :param features: result of make_features(...), tree-like dict task_name: str -> split_name: str -> datasets.Dataset
-    :param split: name of split, present in all tasks, examples: "train", "validation", "test"
-    :return: mapping task_name: str -> split_of_dataset: datasets.Dataset
+    Separate multitask features into taskwise dict(task_name:dataset) 
+    or if unpackable tuple of this dicts for each split in *split_names
+    :param features: Multitask features dict(for example: make_features(...))
+    :param *split_names: Names of splits to aggregate
+    :return: Single dict or multiple packed in a tuple for each split
     """
-    return {task_name: dataset[split] for task_name, dataset in features.items()}
+    assert len(split_names), IndexError("Expected at least 1 split name (for example \"train\")")
+    result = []
+    for split_name in split_names:
+        result.append({task_name: dataset[split_name] for task_name, dataset in features.items()})
+    return tuple(result) if len(result) > 1 else result[0]
 
 
 class NLPDataCollator(DefaultDataCollator):
@@ -259,8 +264,8 @@ class MultitaskTrainer(Trainer):
             task_name: self.get_single_eval_dataloader(task_name, task_dataset)
             for task_name, task_dataset in eval_dataset.items()
         })
-        # TODO Fix this hell
-        # Idk why but I always catch an error
-        # AttributeError: 'MultitaskDataloader' object has no attribute 'batch_size'
+        # If this is not set explicitly
+        # | AttributeError: 'MultitaskDataloader' object has no attribute 'batch_size'
+        # | [issue] https://github.com/s1m0000n/multitask-transformers/issues/2
         mt_dataloader.batch_size = 32
         return mt_dataloader
