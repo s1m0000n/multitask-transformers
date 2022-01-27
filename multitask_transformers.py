@@ -3,13 +3,48 @@ import torch
 import torch.nn as nn
 import numpy as np
 from typing import *
-from task import Task
 import multiprocessing as mp
 from transformers import PreTrainedModel, PretrainedConfig, Trainer
 from torch.utils.data.dataloader import DataLoader
 from transformers.data.data_collator import DefaultDataCollator, InputDataClass
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data.sampler import RandomSampler
+from collections import UserDict
+from utils import method, subcls, fassert
+
+
+class Task:
+    """
+    Validates and stores tasks data, config, etc.
+    """
+
+    def __init__(self, cls: Any, config: Type[PretrainedConfig],
+                 converter_to_features: Callable[[Iterable[Any]], Type[UserDict]],
+                 data: datasets.DatasetDict, name: Optional[str] = None) -> None:
+        """
+        Checking task fields for compatibility with other components of multitask learner
+        :param cls:
+        :param config:
+        :param converter_to_features:
+        :param data:
+        :param name:
+        """
+        # FIX: fassert -> normal Pythonic code
+        # -> https://github.com/s1m0000n/multitask-transformers/issues/13
+        self.cls = fassert(method("from_pretrained") @ cls, cls,
+                           "cls is expected to have \"from_pretrained\" method")
+        self.config = fassert(subcls(config) @ PretrainedConfig, config,
+                              "config is expected to be a subclass of PretrainedConfig")
+        self.converter = fassert(callable(converter_to_features), converter_to_features,
+                                 "converter_to_features is expected to be a callable, "
+                                 "with Iterable[Any] arg representing batch and "
+                                 "returning features: UserDict | "
+                                 "transformers.BatchEncoding to be used with "
+                                 "forward method of transformers")
+        # FIX: normal assertion message
+        # -> https://github.com/s1m0000n/multitask-transformers/issues/13
+        self.data = fassert(isinstance(data, datasets.DatasetDict), data, "Implement me!")
+        self.name = name or "Untitled"
 
 
 class MultitaskModel(PreTrainedModel):
@@ -87,8 +122,8 @@ def make_features(tasks: Dict[str, Task], num_proc: int = mp.cpu_count(),
 def unpack_splits(features: Dict[str, Dict[str, datasets.Dataset]],
                   *split_names: Tuple[str]) -> Tuple[Dict[str, datasets.Dataset]]:
     """
-    Separate multitask features into taskwise dict(task_name:dataset) 
-    or if unpackable tuple of this dicts for each split in *split_names
+    Separate multitask features into taskwise dict(task_name:dataset) or
+    if unpackable tuple of this dicts for each split in *split_names
     :param features: Multitask features dict(for example: make_features(...))
     :param *split_names: Names of splits to aggregate
     :return: Single dict or multiple packed in a tuple for each split
