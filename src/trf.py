@@ -200,6 +200,8 @@ class MultitaskDataloader:
         We use size-proportional sampling, but you could easily modify this
         to sample from some-other distribution.
         """
+        # TODO: task-batch learning strategies to be changed here
+        # -> https://github.com/s1m0000n/multitask-transformers/issues/22
         task_choice_list = []
         for i, task_name in enumerate(self.task_name_list):
             task_choice_list += [i] * self.num_batches_dict[task_name]
@@ -285,5 +287,5 @@ class MultitaskTrainer(Trainer):
         })
         # TODO: if not set explicitly here => AttributeError: 'MultitaskDataloader' object has no attribute 'batch_size'
         # -> https://github.com/s1m0000n/multitask-transformers/issues/2
-        mt_dataloader.batch_size = 32
+        # mt_dataloader.batch_size = 32
         return mt_dataloader
