@@ -8,7 +8,7 @@ from re import findall
 from typing import Optional, Dict
 import datasets
 import pandas as pd
-from utils import download, split_index
+from src.data import download, split_index
 
 
 def load(positive_url: str = 'https://www.dropbox.com/s/fnpq3z4bcnoktiv/positive.csv?dl=1',

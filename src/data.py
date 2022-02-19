@@ -11,7 +11,7 @@ import requests
 import datasets
 import numpy as np
 from tqdm import tqdm
-from multitask_transformers import Task
+from .trf import Task
 
 
 def download(url: str, destination_folder: str) -> str:
@@ -63,7 +63,7 @@ def make_features(tasks: Dict[str, Task], *map_args,
 
 
 def unpack_splits(features: Dict[str, Dict[str, datasets.Dataset]],
-                  *split_names: Tuple[str]) -> Tuple[Dict[str, datasets.Dataset]]:
+                  *split_names: Tuple[str]):
     """
     Separate multitask features into taskwise dict(task_name:dataset) or
     if unpackable tuple of this dicts for each split in *split_names

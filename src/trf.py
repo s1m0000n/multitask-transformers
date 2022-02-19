@@ -124,9 +124,9 @@ class NLPDataCollator(DefaultDataCollator):
             # (one per example), so we  will adapt the collate_batch logic for that
             if "labels" in first and first["labels"] is not None:
                 if first["labels"].dtype == torch.int64:
-                    labels = torch.Tensor([f["labels"] for f in features], dtype=torch.long)
+                    labels = torch.tensor([f["labels"] for f in features], dtype=torch.long)
                 else:
-                    labels = torch.Tensor([f["labels"] for f in features], dtype=torch.float)
+                    labels = torch.tensor([f["labels"] for f in features], dtype=torch.float)
                 batch = {"labels": labels}
             for k, v in first.items():
                 if k != "labels" and v is not None and not isinstance(v, str):
