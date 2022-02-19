@@ -1,11 +1,25 @@
 # Multitask Transformers
 
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/s1m0000n/multitask-transformers/Pylint?label=pylint)
 [![Open In Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1FCNOK7t3n39fqMF7vZNrU_2XVykEkwTz?usp=sharing)
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/s1m0000n/multitask-transformers/Pylint?label=pylint)
 
 My 4th year research project at MSU about multitask Transformer-based language models
 
 Anyone interested in joining the research & contributing to the project is welcome! It's planned to release a paper on the results of the research (alongside graduation project), so I'd be happy to have coauthors. If you are interested, please contact me by email pogorelcevsa@gmail.com or in Telegram https://t.me/s1m00n 
+
+## Notebooks
+
+### Stable
+
+New stuff gets here after experiments and tests (working, positive changes) with a bit polished code, using code from the master branch
+
+Link(same as in the shield): https://colab.research.google.com/drive/1FCNOK7t3n39fqMF7vZNrU_2XVykEkwTz?usp=sharing
+
+### Experimental
+
+Active research here with possibly awful code / failing to work, implementing new tasks etc. , using code from the experimental branch
+
+Link: https://colab.research.google.com/drive/1-OwwTMixRXMuOBvEH1O17L-vb5rwc__F?usp=sharing
 
 ## Roadmap
 
