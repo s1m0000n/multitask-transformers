@@ -288,4 +288,5 @@ class MultitaskTrainer(Trainer):
         # TODO: if not set explicitly here => AttributeError: 'MultitaskDataloader' object has no attribute 'batch_size'
         # -> https://github.com/s1m0000n/multitask-transformers/issues/2
         # mt_dataloader.batch_size = 32
+        mt_dataloader.batch_size = self.args.eval_batch_size
         return mt_dataloader
