@@ -8,13 +8,16 @@ from re import findall
 from typing import Optional, Dict
 import datasets
 import pandas as pd
-from ..src.data import download, split_index
+import os
+import os.path
+from src.data import download, split_index
 
 
 def load(positive_url: str = 'https://www.dropbox.com/s/fnpq3z4bcnoktiv/positive.csv?dl=1',
          negative_url: str = 'https://www.dropbox.com/s/r6u59ljhhjdg6j0/negative.csv?dl=1',
          splits: Optional[Dict[str, float]] = None, shuffle: bool = True,
-         cache_path: str = 'dataset_cache/mokoron') -> datasets.DatasetDict:
+         cache_path: str = 'dataset_cache/mokoron',
+         input_field: str="input", label_field: str= "label") -> datasets.DatasetDict:
     """
     Loading the mokoron dataset by url / from cache, preparing a splitted shuffled DatasetDict
 
@@ -41,13 +44,13 @@ def load(positive_url: str = 'https://www.dropbox.com/s/fnpq3z4bcnoktiv/positive
     if not os.path.isfile(negative_filepath):
         download(negative_url, cache_path[:-1])
     pos_df = pd.read_csv(positive_filepath, sep=';', header=None)
-    pos_df['label'] = 1
-    pos_df.rename(columns={3: 'text'}, inplace=True)
-    pos_df = pos_df[['text', 'label']]
+    pos_df[label_field] = 1
+    pos_df.rename(columns={3: input_field}, inplace=True)
+    pos_df = pos_df[[input_field, label_field]]
     neg_df = pd.read_csv(negative_filepath, sep=';', header=None)
-    neg_df['label'] = 0
-    neg_df.rename(columns={3: 'text'}, inplace=True)
-    neg_df = neg_df[['text', 'label']]
+    neg_df[label_field] = 0
+    neg_df.rename(columns={3: input_field}, inplace=True)
+    neg_df = neg_df[[input_field, label_field]]
     df = pd.concat([pos_df, neg_df], ignore_index=True)
     sub_datasets = {}
     for part, indices in split_index(len(df), splits, shuffle).items():
