@@ -10,7 +10,7 @@ import datasets
 import pandas as pd
 import os
 import os.path
-from src.data import download, split_index
+from ..data import download, split_index
 
 
 def load(positive_url: str = 'https://www.dropbox.com/s/fnpq3z4bcnoktiv/positive.csv?dl=1',
