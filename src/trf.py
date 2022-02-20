@@ -103,7 +103,7 @@ class MultitaskModel(PreTrainedModel):
 
         :param task_name: name of the task
         :param args: *args passed to Model(encoder -> head)
-        :param kwargs: **kargs passed to Model(encoder -> head)
+        :param kwargs: **kwargs passed to Model(encoder -> head)
         :return: typical results of forward for the model as usual
         """
         return self.task_models[task_name](*args, **kwargs)

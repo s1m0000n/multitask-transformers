@@ -6,6 +6,7 @@ from typing import Dict, Any, Union, Tuple, List
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 from transformers.tokenization_utils_base import TextInput, TextInputPair, PreTokenizedInput, PreTokenizedInputPair, \
     EncodedInput, EncodedInputPair
+from dataclasses import dataclass
 
 parus_questions = {
     'cause': (
@@ -47,6 +48,24 @@ def preprocess_parus(sample: Dict[str, str]) -> Dict[str, Union[Tuple[str, str],
     return {"label": sample["label"], "input": inputs}
 
 
+@dataclass
+class NLIPreprocessor:
+    """
+    Preprocessing for NLI tasks with fields hypothesis, premise & label
+    """
+    hypothesis_field: str = "hypothesis"
+    premise_field: str = "premise"
+    label_field: str = "label"
+    input_field: str = "input"
+    label_field_in: str = "label"
+
+    def __call__(self, sample: Dict[str, str]) -> Dict[str, Union[Tuple[str, str], str]]:
+        hypothesis = sample[self.hypothesis_field]
+        premise = sample[self.premise_field]
+        label = sample[self.label_field_in]
+        return {self.input_field: (hypothesis, premise), self.label_field: label}
+
+
 class InputLabelConv:
     """
     Converter for input, label paired datasets
@@ -71,7 +90,7 @@ class InputLabelConv:
         """
         Featurizes a batch of training samples: inputs are tokenized & labels prepared for torch
         :param batch: Mapping {inputs, labels} to corresponding values
-        :return:
+        :return: features for Transformer-based LMs, like BERT
         """
         features = self.tokenizer.batch_encode_plus(
             batch[self.input_name], *self.tokenizer_args, **self.tokenizer_kwargs
