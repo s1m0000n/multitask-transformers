@@ -17,7 +17,7 @@ Link(same as in the shield): https://colab.research.google.com/drive/1FCNOK7t3n3
 
 ### Experimental
 
-Active research here with possibly awful code / failing to work, implementing new tasks etc. , using code from the experimental branch
+Active research here with possibly awful code / failing to work, implementing new tasks etc. , using code from the experimental branches
 
 Link: https://colab.research.google.com/drive/1-OwwTMixRXMuOBvEH1O17L-vb5rwc__F?usp=sharing
 
