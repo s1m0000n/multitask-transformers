@@ -19,7 +19,7 @@ def download(url: str, destination_folder: str) -> str:
     Downloads the file from url, saves to destination folder
     :param url: resource url, file extension extracted from it too
     :param destination_folder: path, where the file is saved
-    :return: filename
+    :return: filename | http error fot 4XX, 5XX codes
     """
     if not os.path.exists(destination_folder):
         os.makedirs(destination_folder)  # create folder if it does not exist
@@ -36,7 +36,6 @@ def download(url: str, destination_folder: str) -> str:
                     file.flush()
                     os.fsync(file.fileno())
         return filename
-    # HTTP status code 4XX/5XX
     raise requests.HTTPError(f"Download failed: status code{ref.status_code}\n{ref.text}")
 
 
@@ -63,7 +62,7 @@ def make_features(tasks: Dict[str, Task], *map_args,
 
 
 def unpack_splits(features: Dict[str, Dict[str, datasets.Dataset]],
-                  *split_names: Tuple[str]):
+                  *split_names: str):
     """
     Separate multitask features into taskwise dict(task_name:dataset) or
     if unpackable tuple of this dicts for each split in *split_names
@@ -146,11 +145,15 @@ def dict_map(datadict: datasets.DatasetDict,
     result = {}
     if name is None:
         name = 'unnamed_dataset'
+    try:
+        fname = func.__name__
+    except AttributeError:
+        fname = "undefined"
     if verbose:
-        print(f'map({func.__name__}, {name}):')
+        print(f'map({fname}, {name}):')
     for i, (part, dataset) in enumerate(data.items()):
         if verbose:
-            print(f'    map({func.__name__}, {name}[{part}])', end='')
+            print(f'    map({fname}, {name}[{part}])', end='')
             print(':' if progress_bars else '')
         cols = {}
         i = 0
