@@ -61,8 +61,7 @@ def make_features(tasks: Dict[str, Task], *map_args,
     return features
 
 
-def unpack_splits(features: Dict[str, Dict[str, datasets.Dataset]],
-                  *split_names: str):
+def unpack_splits(features: Dict[str, Dict[str, datasets.Dataset]], *split_names: str):
     """
     Separate multitask features into taskwise dict(task_name:dataset) or
     if unpackable tuple of this dicts for each split in *split_names
