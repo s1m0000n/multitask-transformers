@@ -5,7 +5,7 @@ from dataclasses import dataclass
 @dataclass
 class NLIPreprocessor:
     """
-    Preprocessing for NLI tasks with fields hypothesis, premise & label
+    Preprocessing for NLI _tasks with fields hypothesis, premise & label
     """
     hypothesis_field: str = "hypothesis"
     premise_field: str = "premise"

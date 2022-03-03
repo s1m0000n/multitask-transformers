@@ -1,14 +1,20 @@
-from operator import lt
-
-from functools import partial
-
 import os
-
-import itertools
-import numpy as np
 import requests
+import multiprocessing as mp
+from functools import partial
+from operator import lt
+from typing import Callable, Dict, Any, Optional, Union, Iterable, Mapping, Iterator, TypeVar
 
-from typing import Iterable, Any, Optional, Callable, Iterator, Dict, TypeVar
+from tqdm.auto import tqdm
+
+import numpy as np
+import pandas as pd
+
+import datasets
+from datasets import DatasetDict, Dataset
+
+T = TypeVar('T')
+T2 = TypeVar('T2')
 
 
 def flatten(data: Iterable[Any],
@@ -29,13 +35,33 @@ def flatten(data: Iterable[Any],
                 yield item
 
 
-def slice_into_chunks(n, iterable):
-    it = iter(iterable)
-    while True:
-        chunk = tuple(itertools.islice(it, n))
-        if not chunk:
-            return
-        yield chunk
+Mapper = Callable[[Dict[str, Any]], Optional[Union[Mapping[str, Any], Iterable[Mapping[str, Any]]]]]
+
+
+def dmap(func: Mapper, datadict: Union[DatasetDict, Mapping[str, Dataset]],
+         parallel: bool = True, num_proc: Optional[int] = None,
+         verbose: bool = False, verbose_name: str = "Unnamed Dataset") -> DatasetDict:
+    def iftqdm(x, *args, **kwargs):
+        return tqdm(x, *args, **kwargs) if verbose else x
+
+    def ifprint(*args, **kwargs):
+        return print(*args, **kwargs) if verbose else None
+
+    data = dict(datadict) if isinstance(datadict, DatasetDict) else datadict
+    parts = {}
+    ifprint(f"Processing {verbose_name}")
+    for part_name, dataset in iftqdm(data.items()):
+        ifprint(f"=> Part {part_name}:")
+        if parallel:
+            with mp.Pool(mp.cpu_count() if num_proc is None else num_proc) as pool:
+                processed = (pool.imap if verbose else pool.map)(func, dataset)
+        else:
+            processed = map(func, dataset)
+        parts[part_name] = Dataset.from_pandas(pd.DataFrame.from_records(
+            flatten(iftqdm(processed, total=len(dataset)),
+                    lambda x: not isinstance(x, Dict),
+                    lambda x: x is None)))
+    return datasets.DatasetDict(parts)
 
 
 def download(url: str, destination_folder: str) -> str:
@@ -94,9 +120,6 @@ def split_index(length: int,
         result[key] = index[prev: value]
         prev = value
     return result
-
-
-T = TypeVar('T')
 
 
 def itercat(*iterables: Iterable[T]) -> Iterable[T]:

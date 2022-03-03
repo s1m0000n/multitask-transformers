@@ -1,26 +1,5 @@
-from dataclasses import dataclass
+from transformers import PreTrainedModel, PretrainedConfig
 from torch import nn
-from transformers import PreTrainedModel, PretrainedConfig, AutoConfig
-from typing import Any, Optional, Dict
-
-
-@dataclass
-class Head:
-    class_: Any
-    config_params: Optional[Dict[str, Any]] = None
-
-    def __post_init__(self) -> None:
-        from_pretrained = getattr(self.class_, "from_pretrained", None)
-        if (not from_pretrained) or (not callable(from_pretrained)):
-            raise TypeError("Wrong type for 'cls', must have a callable method 'from_pretrained'")
-        if self.config_params is None:
-            self.config_params = {}
-
-    def make_config(self, model_path: str):
-        return AutoConfig.from_pretrained(model_path, **self.config_params)
-
-    def make_model(self, model_path: str) -> PreTrainedModel:
-        return self.class_.from_pretrained(model_path, config=self.make_config(model_path))
 
 
 class MultitaskModel(PreTrainedModel):
@@ -34,18 +13,18 @@ class MultitaskModel(PreTrainedModel):
         self.task_models = nn.ModuleDict(task_models)
 
     @classmethod
-    def create(cls, model_path: str, heads: Dict[str, Head]):
+    def create(cls, encoder_path: str, tasks):
         """
         Creating a MultitaskModel using the model class (Task.cls) and config (Task.config) from single-task models.
         Creating each single-task model, and having them share the same encoder transformer.
-        :param model_path: name of encoder model, example: "bert-base-uncased"
-        :param heads: dictionary of task names and corresponding heads
+        :param encoder_path: name of encoder model, example: "bert-base-uncased"
+        :param tasks: dictionary of _tasks with names
         :return: MultitaskModel with initialized shared encoder and task_models
         """
         shared_encoder = None
         task_models = {}
-        for name, head in heads.items():
-            model = head.make_model(model_path)
+        for name, task in tasks.items():
+            model = task.cls.from_pretrained(encoder_path, config=task.config)
             if shared_encoder is None:
                 shared_encoder = getattr(model, cls.get_encoder_attr_name(model))
             else:
@@ -67,12 +46,6 @@ class MultitaskModel(PreTrainedModel):
         if name.startswith("Albert"):
             return "albert"
         raise NotImplementedError(f"Add support for new model {name}")
-
-    def __getitem__(self, task_name: str):
-        if task_name in self.task_models:
-            return self.task_models[task_name]
-        else:
-            raise KeyError(f"No model found for {task_name}")
 
     def forward(self, task_name: str, *args, **kwargs):
         """

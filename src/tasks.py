@@ -1,315 +1,172 @@
-"""
-Containers and methods for task
-"""
-import numpy as np
-from transformers.tokenization_utils import TextInput, TextInputPair, \
-    PreTokenizedInput, PreTokenizedInputPair, EncodedInput, EncodedInputPair
-from datasets import Dataset, DatasetDict, load_metric
-from pydantic import BaseModel, validator
-from transformers import EvalPrediction, BatchEncoding, PretrainedConfig, AutoConfig, \
-    AutoModelForSequenceClassification, AutoTokenizer
-from typing import Any, Type, TypeVar, Dict, Callable, List, Union, Iterable, Optional, Tuple
-
-from .features import ClassificationConverter
-from .models import MultitaskModel
-from .utils import dmap, itercat
-
+# TODO: Docstrings for everything
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from datasets import DatasetDict
+from transformers import AutoModelForSequenceClassification
+from typing import Optional, Callable, Iterable, Type, Union, Dict, Set
 
-T = TypeVar('T')
-
-Batch = Dict[str, Union[
-    List[TextInput], List[TextInputPair],
-    List[PreTokenizedInput], List[PreTokenizedInputPair],
-    List[EncodedInput], List[EncodedInputPair],
-]]
-
-ComputeMetrics = Callable[[EvalPrediction], Dict[str, float]]
+from .data import Data, MultitaskDataLoader, MultitaskBatchSampler
+from .metrics import SequenceClassificationMetrics
+from .models import Head, MultitaskModel
+from .preprocessing import Preprocessor
+from .tokenizers import TokenizerConfig
 
 
-class ConfiguredTask(BaseModel):
-    """
-    Task with config initialized from pretrained model
-    """
+@dataclass(frozen=True)
+class Task:
     name: str
-    cls: Any
-    config: Any
-    data: DatasetDict
-    converter: Callable[[Batch], BatchEncoding]
-    compute_metrics: Optional[ComputeMetrics] = None
+    head: Head
+    data: Data
+    metrics: Optional[Callable] = None
 
-    @validator('cls')
-    def cls_validate(cls, value: T) -> T:
-        from_pretrained = getattr(value, "from_pretrained", None)
-        if (not from_pretrained) or (not callable(from_pretrained)):
-            raise TypeError("Wrong type for 'cls', must have a callable method from_pretrained")
-        return value
-
-    @validator('config')
-    def config_validate(cls, value: T) -> T:
-        if issubclass(type(value), PretrainedConfig):
-            return value
-        raise TypeError("Wrong type for 'config', must be subclass of transformers.PretrainedConfig")
+    def __post_init__(self):
+        if not isinstance(self.name, str):
+            raise TypeError("Wrong type for 'name', must be an instance of 'str'")
+        if not isinstance(self.head, Head):
+            raise TypeError("Wrong type for 'head', must be an instance of 'Head'")
+        if not isinstance(self.data, Data):
+            raise TypeError("Wrong type for 'data', must be an instance of 'Data'")
+        if self.metrics is not None and not callable(self.metrics):
+            raise TypeError("Wrong type for 'metrics', must be a callable, _call__() method not implemented")
 
 
-class IncompleteTask(ABC):
+class CastableToTask(ABC):
     """
-    Abstract class for incomplete tasks, which are further configured
-    with the implemented in each subclass .configure() method
+    Abstract class for specific _tasks, which can be casted to Task with implemented method
+    'make_task(model_path: str) -> Task'
     """
 
     @abstractmethod
-    def configure(self, model_name: str) -> ConfiguredTask:
+    def make_task(self, model_path: str) -> Task:
         pass
 
 
-class Task(IncompleteTask):
-    """
-    Basic class for representing tasks with undefined shared encoder model with config as dict
-    """
+@dataclass(frozen=True)
+class SequenceClassificationTask(CastableToTask):
+    name: str
+    dataset_dict: DatasetDict
+    num_labels: int = 2
+    metrics: Optional[SequenceClassificationMetrics] = None
+    preprocessor: Optional[Preprocessor] = None
+    tokenizer_config: Optional[TokenizerConfig] = None
 
-    def __init__(self, name: str, cls: Any, data: DatasetDict,
-                 converter: Callable[[Batch], BatchEncoding],
-                 config: Dict[str, Any] = None,
-                 compute_metrics: Optional[ComputeMetrics] = None) -> None:
-        if config is None:
-            config = {}
-        self.name = name
-        from_pretrained = getattr(cls, "from_pretrained", None)
-        if (not from_pretrained) or (not callable(from_pretrained)):
-            raise TypeError("Wrong type for 'cls', must have a callable method from_pretrained")
-        self.cls = cls
-        self.config = config
-        self.data = data
-        self.converter = converter
-        self.compute_metrics = compute_metrics
+    def __post_init__(self) -> None:
+        if self.metrics is not None and not isinstance(self.metrics, SequenceClassificationMetrics):
+            raise TypeError("Wrong type for 'metrics', must be either equal None, "
+                            "or be an instance of 'SequenceClassificationMetrics'")
 
-    def configure(self, model_path: str) -> ConfiguredTask:
-        """
-        Casts Task to ConfiguredTask by using encoder model_path to create a transformers config
-        :param model_path: Model path / name in Hugging Face Transformers module
-        :return: Ready to use ConfiguredTask
-        """
-        return ConfiguredTask(
+    def make_task(self, model_path: str) -> Task:
+        tokenizer_config = TokenizerConfig() if self.tokenizer_config is None else self.tokenizer_config
+        return Task(
             name=self.name,
-            cls=self.cls,
-            config=AutoConfig.from_pretrained(model_path, **self.config),
-            data=self.data,
-            converter=self.converter,
-            compute_metrics=self.compute_metrics
+            head=Head(
+                class_=AutoModelForSequenceClassification,
+                config_params={"num_labels": self.num_labels},
+            ),
+            data=Data(
+                data=self.dataset_dict,
+                configured_tokenizer=tokenizer_config.make_configured_tokenizer(model_path),
+                preprocessor=self.preprocessor
+            ),
+            metrics=self.metrics
         )
 
 
-class ClassificationMetrics:
-    def __init__(self, metrics: Iterable[str] = ("accuracy", "precision", "recall", "f1")):
-        self.metrics = [load_metric(metric) for metric in metrics]
-
-    def __call__(self, eval_pred: EvalPrediction) -> Dict[str, float]:
-        logits, labels = eval_pred
-        predictions = np.argmax(logits, axis=-1)
-        result = {}
-        for metric in self.metrics:
-            result.update(metric.compute(predictions, labels))
-        return result
-
-
-class ClassificationTask(IncompleteTask):
-    """
-    Class for solving basic classification tasks with preconfigured converter to features & model head:
-        (Encoder model) -> nn.Dropout -> nn.Linear(hidden_size, num_labels) -> cases {
-            num_labels == 1 => MSELoss                                 # Reduces to regression
-
-            num_labels > 1 and labels: int | float => CrossEntropyLoss # Single label classification
-
-            else => BCEWithLogitsLoss                                  # Multi label classification
-        }
-    """
-
-    def __init__(self, name: str, data: DatasetDict,
-                 num_labels: int = 2,
-                 input_field: str = "input",
-                 label_field: str = "label",
-                 preprocessor: Optional[Callable] = None,
-                 config: Optional[Dict[str, Any]] = None,
-                 tokenizer_args: Optional[Tuple] = None,
-                 tokenizer_kwargs: Optional[Dict[str, Any]] = None,
-                 compute_metrics: Optional[ComputeMetrics] = ClassificationMetrics()) -> None:
-        self.name = name
-        self.data = data if preprocessor is None else dmap(preprocessor, data)
-        self.config = config if config else {}
-        if "num_labels" not in self.config:
-            self.config["num_labels"] = num_labels
-        self.input_field = input_field
-        self.label_field = label_field
-        self.tokenizer_args = tokenizer_args if tokenizer_args else ()
-        self.tokenizer_kwargs = tokenizer_kwargs if tokenizer_kwargs else {
-            "padding": True,
-            "truncation": True,
-        }
-        self.compute_metrics = compute_metrics
-
-    def configure(self, model_path: str) -> ConfiguredTask:
-        """
-        Casts ClassificationTask to ConfiguredTask
-
-        :param model_path: Model path / name in Hugging Face Transformers module
-        :return: Configured task using 'model_path'
-        """
-        return Task(
-            name=self.name,
-            cls=AutoModelForSequenceClassification,
-            config=self.config,
-            data=self.data,
-            converter=ClassificationConverter(
-                AutoTokenizer.from_pretrained(model_path),
-                *self.tokenizer_args,
-                input_field=self.input_field,
-                label_field=self.label_field,
-                **self.tokenizer_kwargs
-            ),
-            compute_metrics=self.compute_metrics
-        ).configure(model_path)
-
-
-AnyTask = Union[ConfiguredTask, Type[IncompleteTask]]
-AnyTask.__doc__ = "Any Task classes instance"
-
-
-def resolve_task(model_path: str, task: AnyTask) -> ConfiguredTask:
-    """
-    Resolve any kind of Task to Configured task
-    :param model_path: Model path / name in Hugging Face Transformers module
-    :param task: Any Task classes instance, not depending on config: Task or ConfiguredTask
-    :return: ConfiguredTask instance or fails with TypeError
-    """
-    if isinstance(task, ConfiguredTask):
-        return task
-    elif issubclass(type(task), IncompleteTask):
-        return task.configure(model_path)
-    else:
-        raise TypeError(f"Wrong type {type(task)} for 'task' argument, must be an instance of {AnyTask}")
-
-
 class Tasks:
-    """
-    Gathers all tasks sharing the same base encoder
-    """
-
-    def __init__(self, model_path: str,
-                 task: Optional[Union[AnyTask, Iterable[AnyTask]]] = None,
-                 *tasks: AnyTask) -> None:
-        self.encoder_path = model_path
-        self.tasks = {}
-        if task is not None:
-            for task in itercat(task, tasks):
-                resolved = resolve_task(self.encoder_path, task)
-                self.tasks[resolved.name] = resolved
-
-    def __getitem__(self, item: str) -> Optional[ConfiguredTask]:
-        return self.tasks[item] if item in self.tasks else None
-
-    def add(self, task: AnyTask, raising: bool = True) -> 'Tasks':
-        if task.name in self.tasks:
-            if raising:
-                raise IndexError(f"Task with name {task.name} is already in Tasks")
-        else:
-            self.tasks[task.name] = resolve_task(self.encoder_path, task)
-        return self
-
-    def replace(self, task: AnyTask, raising: bool = True) -> 'Tasks':
-        if task.name not in self.tasks:
-            if raising:
-                raise IndexError(f"Task with name {task.name} is not in Tasks, nothing to replace")
-        else:
-            self.tasks[task.name] = resolve_task(self.encoder_path, task)
-        return self
-
-    def update(self, tasks: Union[AnyTask, Iterable[AnyTask]]) -> 'Tasks':
-        if isinstance(tasks, Iterable):
-            for t in tasks:
-                self.tasks[t.name] = resolve_task(self.encoder_path, t)
-            return self
-        else:
-            self.update([tasks])
-
-    def make_packed_features(
-            self,
-            columns: Iterable[str] = ("input_ids", "attention_mask", "labels"),
-            map_kwargs: Optional[Dict[str, Any]] = None,
-            task_map_kwargs: Optional[Dict[str, Dict[str, Any]]] = None
-    ) -> Dict[str, Dict[str, Dataset]]:
-        """
-        Creates features for all tasks from data field (after preprocessing)
-
-        :param columns: Columns to format in the output to torch type (columns used further for training)
-        :param map_kwargs: General arguments for all tasks in datasets.Dataset.map call (default: batched=True)
-        :param task_map_kwargs: Task specific arguments in datasets.Dataset.map call (higher priority then general)
-        :return: Dictionary of featurized data in format task_name: str -> part_name: str -> dataset: datasets.Dataset
-        """
-
-        features: Dict[str, Dict[str, Dataset]] = {}
-        map_kwargs = {} if map_kwargs is None else map_kwargs
-        task_map_kwargs = {} if task_map_kwargs is None else task_map_kwargs
-
-        if "batched" not in map_kwargs:
-            map_kwargs["batched"] = True
-
-        for name, task in self.tasks.items():
-            features[name] = {}
-            if name in task_map_kwargs:
-                final_map_kwargs = map_kwargs.update(task_map_kwargs)
+    def __init__(self, model_path: str, tasks: Iterable[Union[Task, Type[CastableToTask]]]) -> None:
+        if not isinstance(model_path, str):
+            raise TypeError("Wrong type for 'model_path', must be an instance of 'str'")
+        self.model_path = model_path
+        self._model = None
+        self._tasks = {}
+        for task in tasks:
+            if isinstance(task, Task):
+                self._tasks[Task.name] = Task
             else:
-                final_map_kwargs = map_kwargs
-            for split_name, split_dataset in task.data.items():
-                features[name][split_name] = split_dataset.map(task.converter, **final_map_kwargs)
-                features[name][split_name].set_format(type="torch", columns=list(columns))
-        return features
+                cast_fun = getattr(task, "make_task", None)
+                if cast_fun is None:
+                    raise AttributeError("Expected _tasks to contain instances of Task or classes castable to Task, "
+                                         "implementing method 'make_task(model_path: str) -> Task', "
+                                         "got class, which is not Task, which not implements method 'make_task'")
+                casted_task = cast_fun(self.model_path)
+                if not isinstance(casted_task, Task):
+                    raise TypeError(f"Wrong type for result of using 'cast_task' on castable task - "
+                                    f"instance of '{type(task)}', expected 'Task', but got '{type(casted_task)}'")
+                self._tasks[casted_task.name] = casted_task
 
-    def make_features(
-            self, splits: Union[List[str], Tuple[str]] = ("train", "validation", "test"),
-            columns: Iterable[str] = ("input_ids", "attention_mask", "labels"),
-            map_kwargs: Optional[Dict[str, Any]] = None,
-            task_map_kwargs: Optional[Dict[str, Dict[str, Any]]] = None
-    ) -> Union[Tuple[Dict[str, Dataset], ...], Dict[str, Dataset]]:
-        """
-        Creates features for all tasks from data field (after preprocessing) in the format used by MultitaskTrainer
+    def __getitem__(self, task_name: str) -> Task:
+        if task_name not in self._tasks:
+            raise KeyError(f"Task named {task_name} is not found")
+        return self._tasks[task_name]
 
-        :param splits: Names of the splits to be returned (order is important, so use ordered data structures like list)
-        :param columns: Columns to format in the output to torch type (columns used further for training)
-        :param map_kwargs: General arguments for all tasks in datasets.Dataset.map call (default: batched=True)
-        :param task_map_kwargs: Task specific arguments in datasets.Dataset.map call (higher priority then general)
-        :return: If 1 split is specified => part_name: str -> dataset: datasets.Dataset,
-            for multiple splits - tuple with the same representations as single,
-            but for each split in the order specified in 'splits'
-        """
-        packed = self.make_packed_features(columns=columns, map_kwargs=map_kwargs, task_map_kwargs=task_map_kwargs)
-        result = []
-        for split_name in splits:
-            result.append({task_name: dataset[split_name] for task_name, dataset in packed.items()})
-        return tuple(result) if len(result) > 1 else result[0]
+    @property
+    def names(self) -> Set[str]:
+        return set(self._tasks.keys())
 
-    def make_model(self, cls: Type[T] = MultitaskModel) -> T:
-        """
-        Make a multitask model, with forward taking multiple tasks into account - switching heads
+    @property
+    def tasks(self) -> Dict[str, Task]:
+        return self._tasks
 
-        :param cls: Class with method .create(encoder_path: str, tasks: Mapping[str, ConfiguredTask])
-        :return: Initialized model class with .forward(task_name: str, ...)
-        """
-        return cls.create(self.encoder_path, self.tasks)
+    @property
+    def heads(self) -> Dict[str, Head]:
+        return {name: task.head for name, task in self.tasks.items()}
 
-    def compute_metrics(self, eval_pred: EvalPrediction) -> Dict[str, float]:
-        """
-        Compute metrics for all tasks and join all metrics to single dictionary with suffixes - task-names
+    @property
+    def data(self) -> Dict[str, Data]:
+        return {name: task.data for name, task in self.tasks.items()}
 
-        :param eval_pred: Evaluation output: predictions, label_ids
-        :return: Joined dictionary for all tasks "<metric_name> (<task_name>)" -> value: float
-        """
-        result = {}
-        for task_name, task in self.tasks.items():
-            if task.compute_metrics is not None:
-                for metric_name, metric_value in task.compute_metrics(eval_pred).items():
-                    result[metric_name + f" ({task_name})"] = metric_value
-        return result
+    @property
+    def model(self) -> MultitaskModel:
+        if self._model is None:
+            self._model = MultitaskModel.create(self.model_path, self.heads)
+        return self._model
 
-    def make_compute_metrics(self) -> ComputeMetrics:
-        return self.compute_metrics
+    def keys(self) -> Set[str]:
+        return self.names
+
+    def values(self):
+        return set(self._tasks.values())
+
+    def items(self) -> Dict[str, Task]:
+        return self.tasks
+
+    def make_model(self) -> MultitaskModel:
+        return self.model
+
+    def make_data_loader(
+            self,
+            part: str,
+            batch_size: Optional[int] = None,
+            task_batch_sizes: Optional[Dict[str, int]] = None,
+            shuffle_task_data: Union[bool, Dict[str, bool]] = True,
+            shuffle_batches: bool = True,
+            columns: Iterable[str] = ("input_ids", "attention_mask", "labels")
+    ) -> MultitaskDataLoader:
+        return MultitaskDataLoader(
+            task_datasets=self.data,
+            part=part,
+            batch_size=batch_size,
+            task_batch_sizes=task_batch_sizes,
+            shuffle_task_data=shuffle_task_data,
+            shuffle_batches=shuffle_batches,
+            columns=columns
+        )
+
+    def make_batch_sampler(
+            self,
+            part: str,
+            batch_size: Optional[int] = None,
+            task_batch_sizes: Optional[Dict[str, int]] = None,
+            shuffle_task_data: Union[bool, Dict[str, bool]] = True,
+            shuffle_batches: bool = True,
+            columns: Iterable[str] = ("input_ids", "attention_mask", "labels")
+    ) -> MultitaskBatchSampler:
+        return MultitaskBatchSampler(
+            tasks=self,
+            part=part,
+            batch_size=batch_size,
+            task_batch_sizes=task_batch_sizes,
+            shuffle_task_data=shuffle_task_data,
+            shuffle_batches=shuffle_batches,
+            columns=columns
+        )
