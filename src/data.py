@@ -16,17 +16,24 @@ class DataLoader:
     collate_fun: Callable
     batch_size: int
     shuffle: bool = True
+    finite: bool = False
 
     def __iter__(self) -> 'DataLoader':
         data = self.data.shuffle() if self.shuffle else self.data
         self.batch_data = slice_into_chunks(self.batch_size, data)
         return self
 
+    def __len__(self) -> int:
+        return len(self.data)
+
     def __next__(self):
         if self.batch_data:
             return self.collate_fun(next(self.batch_data))
+        elif self.finite:
+            raise StopIteration()
         else:
-            raise StopIteration
+            self.__iter__()
+            return self.collate_fun(next(self.batch_data))
 
 
 @dataclass
@@ -98,10 +105,11 @@ class Data:
             part: str,
             batch_size: int,
             shuffle: bool = True,
-            columns: Iterable[str] = ("input_ids", "attention_mask", "labels")
+            columns: Iterable[str] = ("input_ids", "attention_mask", "labels"),
+            finite: bool = False
     ) -> DataLoader:
         features = self.make_features(part, columns)
-        return DataLoader(features, self.collator, batch_size, shuffle)
+        return DataLoader(features, self.collator, batch_size, shuffle, finite)
 
 
 @dataclass
@@ -113,6 +121,7 @@ class MultitaskDataLoader:
     shuffle_task_data: Union[bool, Dict[str, bool]] = True
     shuffle_batches: bool = True
     columns: Iterable[str] = ("input_ids", "attention_mask", "labels")
+    finite: bool = False
 
     def __post_init__(self):
         # Validation of batch size data & generalizing
@@ -148,26 +157,31 @@ class MultitaskDataLoader:
         if not isinstance(self.shuffle_batches, bool):
             raise TypeError("Wrong type for 'shuffle_batches', must be an instance of bool")
 
+        # Making batches for all future epoch-iterations - __iter__ calls
         self._batches = []
         for task, data in self.task_datasets.items():
             batch_size = self.task_batch_sizes[task]
             shuffle = self.shuffle_task_data[task]
-            for batch in data.make_data_loader(self.part, batch_size, shuffle, self.columns):
+            for batch in data.make_data_loader(self.part, batch_size, shuffle, self.columns, finite=True):
                 self._batches.append({task: batch})
-        if self.shuffle_batches:
-            random.shuffle(self._batches)
 
     def __iter__(self) -> 'MultitaskDataLoader':
+        self._current_loop_batches = self._batches[:]
+        if self.shuffle_batches:
+            random.shuffle(self._current_loop_batches)
         return self
 
     def __len__(self) -> int:
         return len(self._batches)
 
     def __next__(self):
-        if self._batches:
-            return self._batches.pop()
+        if self._current_loop_batches:
+            return self._current_loop_batches.pop()
+        elif self.finite:
+            raise StopIteration()
         else:
-            raise StopIteration
+            self.__iter__()
+            return self._current_loop_batches.pop()
 
 
 @dataclass
@@ -197,6 +211,7 @@ class MultitaskBatchSampler:
     shuffle_task_data: Union[bool, Dict[str, bool]] = True
     shuffle_batches: bool = True
     columns: Iterable[str] = ("input_ids", "attention_mask", "labels")
+    finite: bool = False
 
     def __post_init__(self) -> None:
         self.data_loader = self.tasks.make_data_loader(
@@ -205,7 +220,8 @@ class MultitaskBatchSampler:
             task_batch_sizes=self.task_batch_sizes,
             shuffle_task_data=self.shuffle_task_data,
             shuffle_batches=self.shuffle_batches,
-            columns=self.columns
+            columns=self.columns,
+            finite=self.finite
         )
         self.data_loader_iter = iter(self.data_loader)
 

@@ -140,7 +140,8 @@ class Tasks:
             task_batch_sizes: Optional[Dict[str, int]] = None,
             shuffle_task_data: Union[bool, Dict[str, bool]] = True,
             shuffle_batches: bool = True,
-            columns: Iterable[str] = ("input_ids", "attention_mask", "labels")
+            columns: Iterable[str] = ("input_ids", "attention_mask", "labels"),
+            finite: bool = False
     ) -> MultitaskDataLoader:
         return MultitaskDataLoader(
             task_datasets=self.data,
@@ -149,7 +150,8 @@ class Tasks:
             task_batch_sizes=task_batch_sizes,
             shuffle_task_data=shuffle_task_data,
             shuffle_batches=shuffle_batches,
-            columns=columns
+            columns=columns,
+            finite=finite
         )
 
     def make_batch_sampler(
@@ -159,7 +161,8 @@ class Tasks:
             task_batch_sizes: Optional[Dict[str, int]] = None,
             shuffle_task_data: Union[bool, Dict[str, bool]] = True,
             shuffle_batches: bool = True,
-            columns: Iterable[str] = ("input_ids", "attention_mask", "labels")
+            columns: Iterable[str] = ("input_ids", "attention_mask", "labels"),
+            finite: bool = False
     ) -> MultitaskBatchSampler:
         return MultitaskBatchSampler(
             tasks=self,
@@ -168,5 +171,6 @@ class Tasks:
             task_batch_sizes=task_batch_sizes,
             shuffle_task_data=shuffle_task_data,
             shuffle_batches=shuffle_batches,
-            columns=columns
+            columns=columns,
+            finite=finite
         )
