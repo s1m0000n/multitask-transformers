@@ -1,9 +1,0 @@
-requests
-numpy
-datasets
-transformers
-torch
-tqdm
-pandas
-pydantic
-pandas
