@@ -1,6 +1,7 @@
 import numpy as np
 from typing import Callable, Any, Iterable, Dict
 from dataclasses import dataclass
+from sklearn.metrics import accuracy_score
 
 
 @dataclass(frozen=True)
@@ -22,3 +23,9 @@ class SequenceClassificationMetrics:
         for metric in self.metrics:
             result[metric.name] = metric(predictions, labels)
         return result
+
+
+accuracy = SequenceClassificationMetric(
+    name="accuracy",
+    fun=lambda pred, true: accuracy_score(true, pred)
+)
