@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 import transformers
 from dataclasses import dataclass, field
 from transformers.file_utils import PaddingStrategy, TensorType
@@ -56,7 +54,7 @@ class ConfiguredTokenizer:
 
     @property
     def call_config(self) -> Dict[str, Any]:
-        call_config = deepcopy(self.__dict__)
+        call_config = self.__dict__.copy()
         del call_config["model_path"]
         del call_config["init_config"]
         del call_config["tokenizer"]
@@ -90,5 +88,5 @@ class TokenizerConfig:
     verbose: bool = True
 
     def make_configured_tokenizer(self, model_path: str) -> ConfiguredTokenizer:
-        return ConfiguredTokenizer(model_path=model_path, **deepcopy(self.__dict__))
+        return ConfiguredTokenizer(model_path=model_path, **self.__dict__.copy())
 

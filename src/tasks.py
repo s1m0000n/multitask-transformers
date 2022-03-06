@@ -1,9 +1,8 @@
-# TODO: Docstrings for everything
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datasets import DatasetDict
 from transformers import AutoModelForSequenceClassification
-from typing import Optional, Callable, Iterable, Type, Union, Dict, Set
+from typing import Optional, Callable, Iterable, Type, Union, Dict, Set, List, Tuple, Any
 
 from .data import Data, MultitaskDataLoader, MultitaskBatchSampler
 from .metrics import SequenceClassificationMetrics
@@ -133,44 +132,18 @@ class Tasks:
     def make_model(self) -> MultitaskModel:
         return self.model
 
-    def make_data_loader(
-            self,
-            part: str,
-            batch_size: Optional[int] = None,
-            task_batch_sizes: Optional[Dict[str, int]] = None,
-            shuffle_task_data: Union[bool, Dict[str, bool]] = True,
-            shuffle_batches: bool = True,
-            columns: Iterable[str] = ("input_ids", "attention_mask", "labels"),
-            finite: bool = False
-    ) -> MultitaskDataLoader:
-        return MultitaskDataLoader(
-            task_datasets=self.data,
-            part=part,
-            batch_size=batch_size,
-            task_batch_sizes=task_batch_sizes,
-            shuffle_task_data=shuffle_task_data,
-            shuffle_batches=shuffle_batches,
-            columns=columns,
-            finite=finite
-        )
+    def make_data_loader(self, **kwargs: Any) -> MultitaskDataLoader:
+        """
+        Creates 'MultitaskDataloader' from all tasks data
+        :param kwargs: Same args as 'MultitaskDataLoader' without 'task_datasets'
+        :return: New, configured instance of 'MultitaskDataLoader'
+        """
+        return MultitaskDataLoader(task_datasets=self.data, **kwargs)
 
-    def make_batch_sampler(
-            self,
-            part: str,
-            batch_size: Optional[int] = None,
-            task_batch_sizes: Optional[Dict[str, int]] = None,
-            shuffle_task_data: Union[bool, Dict[str, bool]] = True,
-            shuffle_batches: bool = True,
-            columns: Iterable[str] = ("input_ids", "attention_mask", "labels"),
-            finite: bool = False
-    ) -> MultitaskBatchSampler:
-        return MultitaskBatchSampler(
-            tasks=self,
-            part=part,
-            batch_size=batch_size,
-            task_batch_sizes=task_batch_sizes,
-            shuffle_task_data=shuffle_task_data,
-            shuffle_batches=shuffle_batches,
-            columns=columns,
-            finite=finite
-        )
+    def make_batch_sampler(self, **kwargs) -> MultitaskBatchSampler:
+        """
+        Created 'MultitaskBatchSampler' instance using data obout tasks
+        :param kwargs: Same args as 'MultitaskBatchSampler' without 'tasks'
+        :return: New, configured instance of 'MultitaskBatchSampler'
+        """
+        return MultitaskBatchSampler(tasks=self, **kwargs)

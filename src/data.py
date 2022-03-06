@@ -1,9 +1,13 @@
-# TODO: Docstrings for everything
+"""
+Utilities & conventional data structures for single- and multitask data loading, preprocessing,
+building & collating batches for single task / mixed tasks
+"""
 import random
 from dataclasses import dataclass, field
+from typing import Any, Optional, Set, Dict, Iterable, Callable, Union, Tuple, List
+
 from datasets import DatasetDict, Dataset
 from transformers import DataCollatorWithPadding, PreTrainedModel
-from typing import Any, Optional, Set, Dict, Iterable, Callable, Union
 
 from .preprocessing import Preprocessor
 from .tokenizers import TokenizerT, ConfiguredTokenizer
@@ -12,6 +16,16 @@ from .utils import slice_into_chunks
 
 @dataclass
 class DataLoader:
+    """
+    Just regular implementation of data loader with collation
+    and finite / infinite Iteration
+
+    :param data: Dataset with PyTorch feature dicts
+    :param collate_fun: Data collator callable
+    :param batch_size: Integer batch size
+    :param shuffle: If true => data is shuffled before slicing into batches & collation
+    :param finite: If false => just yields all the data a single time without repeats, else infinite iterator
+    """
     data: Dataset
     collate_fun: Callable
     batch_size: int
@@ -114,44 +128,96 @@ class Data:
 
 @dataclass
 class MultitaskDataLoader:
+    """
+    Data loader for multitask learning
+
+    Note, that it yields only data and task name, so for training a multitask model
+    you should probably use a 'MultitaskBatchSampler', which can be created
+    using 'Tasks.make_batch_sampler()'
+
+    :param task_datasets: Mapping task name -> data
+    :param part: General part name for unfilled in 'parts'
+    :param parts: Mapping task name -> part name
+    :param batch_size: General batch size for unfilled in 'batch_sizes'
+    :param batch_sizes: Mapping task name -> batch size
+    :param shuffle_data: General shuffling data for unfilled in 'shuffle_task_data'
+    :param shuffle_task_data: Mapping task name -> shuffle data?
+    :param shuffle_batches: Determines whether batches are shuffled (batches of all tasks in set)
+    :param columns: Columns to be prepared for training with pytorch (* => torch.Tensor)
+    :param finite: If false => just yields all the data a single time without repeats, else infinite iterator
+    """
     task_datasets: Dict[str, Data]
-    part: str
+    part: Optional[str] = None
+    parts: Optional[Dict[str, str]] = None
     batch_size: Optional[int] = None
-    task_batch_sizes: Optional[Dict[str, int]] = None
-    shuffle_task_data: Union[bool, Dict[str, bool]] = True
+    batch_sizes: Optional[Dict[str, int]] = None
+    shuffle_data: bool = True
+    shuffle_task_data: Optional[Dict[str, bool]] = None
     shuffle_batches: bool = True
-    columns: Iterable[str] = ("input_ids", "attention_mask", "labels")
-    finite: bool = False
+    columns: Union[List[str], Tuple[str], Set[str]] = ("input_ids", "attention_mask", "labels")
+    finite: bool = True
 
     def __post_init__(self):
-        # Validation of batch size data & generalizing
-        if self.task_batch_sizes is None:
-            self.task_batch_sizes = {}
-        for task in self.task_datasets:
-            if task not in self.task_batch_sizes:
+        if not isinstance(self.finite, bool):
+            raise TypeError("Wrong type for 'finite', must be an instance of bool")
+
+        if not isinstance(self.columns, (list, tuple, set)):
+            raise TypeError("Wrong type for 'columns', must be an instance of list | tuple | set")
+
+        if not isinstance(self.task_datasets, dict):
+            raise TypeError("Wrong type for 'task_dataset', must be an instance of dict[str, Data]")
+
+        task_names = set(self.task_datasets.keys())
+
+        # Checks for non configured task specific fields
+        if self.batch_sizes is None:
+            self.batch_sizes = {}
+        if self.shuffle_task_data is None:
+            self.shuffle_task_data = {}
+        if self.parts is None:
+            self.parts = {}
+
+        # Validating & figuring out all params pairs
+        # which are in format of <general> -> <specific for task>
+        # in one loop
+        for task in task_names:
+
+            # -> Batch sizes
+            if task not in self.batch_sizes:
                 if self.batch_size is None:
                     raise ValueError("Expected to have either batch size for all tasks in "
-                                     "'task_batch_sizes' and 'batch_size': Optional[Any] or"
-                                     "skipped some tasks in 'task_batch_sizes' with default in 'batch_size' or"
-                                     "'task_batch_sizes' = None, 'batch_size': int "
+                                     "'batch_sizes' and 'batch_size': Optional[Any] or"
+                                     "skipped some tasks in 'batch_sizes' with default in 'batch_size' or"
+                                     "'batch_sizes' = None, 'batch_size': int "
                                      "for all tasks to have the same batch size")
                 elif not isinstance(self.batch_size, int):
                     raise TypeError("Wrong type for 'batch_size', must be an instance of 'int'")
                 else:
-                    self.task_batch_sizes[task] = self.batch_size
-            elif not isinstance(self.task_batch_sizes[task], int):
-                raise TypeError("Wrong type for 'task_batch_sizes' keys, must be instances of 'int'")
+                    self.batch_sizes[task] = self.batch_size
+            elif not isinstance(self.batch_sizes[task], int):
+                raise TypeError("Wrong type for 'batch_sizes' values, must be instances of 'int'")
 
-        # Validating task shuffling & generalizing
-        if isinstance(self.shuffle_task_data, bool):
-            value = self.shuffle_task_data
-            self.shuffle_task_data = {task: value for task in self.task_datasets}
-        elif isinstance(self.shuffle_task_data, dict):
-            if set(self.shuffle_task_data.keys()) != set(self.task_datasets.keys()):
-                raise KeyError("'shuffle_task_data' must contain the same keys as 'task_datasets'")
-        else:
-            raise TypeError("Wrong type for 'shuffle_task_data', must be either bool for same shuffling rules "
-                            "for all task datasets or Dict[str, bool] for per-task values")
+            # -> Parts
+            if task not in self.parts:
+                if self.parts is None:
+                    raise ValueError("TODO text")
+                elif not isinstance(self.part, str):
+                    raise TypeError("Wrong type for 'part', must be an instance of 'str'")
+                else:
+                    self.parts[task] = self.part
+            elif not isinstance(self.parts[task], str):
+                raise TypeError("Wrong type for 'parts' values, must be instances of 'str'")
+
+            # -> Shuffling
+            if task not in self.shuffle_task_data:
+                if self.shuffle_data is None:
+                    raise ValueError("TODO text")
+                elif not isinstance(self.shuffle_data, bool):
+                    raise TypeError("Wrong type for 'shuffle_data', must be an instance of 'bool'")
+                else:
+                    self.shuffle_task_data[task] = self.shuffle_data
+            elif not isinstance(self.shuffle_task_data[task], bool):
+                raise TypeError("Wrong type for 'shuffle_task_data' values, must be instances of 'bool'")
 
         # Validating shuffle_shuffle batches
         if not isinstance(self.shuffle_batches, bool):
@@ -160,9 +226,10 @@ class MultitaskDataLoader:
         # Making batches for all future epoch-iterations - __iter__ calls
         self._batches = []
         for task, data in self.task_datasets.items():
-            batch_size = self.task_batch_sizes[task]
+            batch_size = self.batch_sizes[task]
             shuffle = self.shuffle_task_data[task]
-            for batch in data.make_data_loader(self.part, batch_size, shuffle, self.columns, finite=True):
+            part = self.parts[task]
+            for batch in data.make_data_loader(part, batch_size, shuffle, self.columns, finite=True):
                 self._batches.append({task: batch})
 
     def __iter__(self) -> 'MultitaskDataLoader':
@@ -186,43 +253,75 @@ class MultitaskDataLoader:
 
 @dataclass
 class TaskBatch:
+    """
+    Everything necessary for training on the batch of data of some task
+
+    :param name: Task name for logging other stuff
+    :param data: Collated batch of data
+    :param model_head: Model for the task, which can be used as a regular 'PreTrainedModel' in train / eval loops
+    :param metrics: Optional metrics func
+    """
     name: str
     data: Dict[str, Any]
     model_head: PreTrainedModel
     metrics: Optional[Callable] = None
 
     def data_on_device(self, device) -> Dict[str, Any]:
+        """
+        Moves data to device
+        :param device: PyTorch device like 'torch.device("cuda")'
+        :return: Data on target device
+        """
         data = {k: v.to(device) for k, v in self.data.items()}
         return data
 
     def __call__(self, *args, **kwargs):
+        """
+        Call forward pass on the encoder + model head
+        :param args: As in default forward pass
+        :param kwargs: As in default forward pass
+        :return: Model outputs
+        """
         return self.model_head(*args, **kwargs)
+
+    def self_forward(self, device, *args, **kwargs):
+        return self(self.data_on_device(device), *args, **kwargs)
 
 
 @dataclass
 class MultitaskBatchSampler:
+    """
+    Batch sampler for multitask learning
+
+    :param tasks: 'Tasks' instance
+    :param part: General part name for unfilled in 'parts'
+    :param parts: Mapping task name -> part name
+    :param batch_size: General batch size for unfilled in 'batch_sizes'
+    :param batch_sizes: Mapping task name -> batch size
+    :param shuffle_data: General shuffling data for unfilled in 'shuffle_task_data'
+    :param shuffle_task_data: Mapping task name -> shuffle data?
+    :param shuffle_batches: Determines whether batches are shuffled (batches of all tasks in set)
+    :param columns: Columns to be prepared for training with pytorch (* => torch.Tensor)
+    :param finite: If false => just yields all the data a single time without repeats, else infinite iterator
+    """
     # Actually tasks: Tasks, but can not import it,
     # because import loop will happen if data_loaders imports tasks
     # and for tasks it's necessary to import data_loaders
     tasks: Any
-    part: str
+    part: Optional[str] = None
+    parts: Optional[Dict[str, str]] = None
     batch_size: Optional[int] = None
-    task_batch_sizes: Optional[Dict[str, int]] = None
-    shuffle_task_data: Union[bool, Dict[str, bool]] = True
+    batch_sizes: Optional[Dict[str, int]] = None
+    shuffle_data: bool = True
+    shuffle_task_data: Optional[Dict[str, bool]] = None
     shuffle_batches: bool = True
-    columns: Iterable[str] = ("input_ids", "attention_mask", "labels")
-    finite: bool = False
+    columns: Union[List[str], Tuple[str], Set[str]] = ("input_ids", "attention_mask", "labels")
+    finite: bool = True
 
     def __post_init__(self) -> None:
-        self.data_loader = self.tasks.make_data_loader(
-            part=self.part,
-            batch_size=self.batch_size,
-            task_batch_sizes=self.task_batch_sizes,
-            shuffle_task_data=self.shuffle_task_data,
-            shuffle_batches=self.shuffle_batches,
-            columns=self.columns,
-            finite=self.finite
-        )
+        config = self.__dict__.copy()
+        del config["tasks"]
+        self.data_loader = self.tasks.make_data_loader(**config)
         self.data_loader_iter = iter(self.data_loader)
 
     def __iter__(self) -> 'MultitaskBatchSampler':
