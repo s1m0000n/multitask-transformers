@@ -98,20 +98,20 @@ from src.tokenizers import TokenizerConfig
 
 Evaluation sub-loop is not currently included here, but implemented in Colab variants
 
-1. Training on 3 Russian SuperGLUE tasks with optimization on weighted sum of losses (TODO: paste link on GitHub)
-2. Training on 2 other tasks for Russian with regular optimization & custom multilayer head (TODO: paste link on GitHub)
-3. Notebook template for fast manual tests on components being self-functioning and integration with others (TODO: paste link on GitHub)
+1. [Training on 3 Russian SuperGLUE tasks with optimization on weighted sum of losses](https://github.com/s1m0000n/multitask-transformers/blob/master/examples/sum_losses.ipynb)
+2. [Training on 2 other tasks for Russian with regular optimization & custom multilayer head](https://github.com/s1m0000n/multitask-transformers/blob/master/examples/custom_head.ipynb)
+3. [Notebook template for fast manual tests on components being self-functioning and integration with others](https://github.com/s1m0000n/multitask-transformers/blob/master/examples/testing_template.ipynb)
 
 ### Colab
 
-1. My notebook for experiments with regular training https://colab.research.google.com/drive/1FCNOK7t3n39fqMF7vZNrU_2XVykEkwTz?usp=sharing
-2. My notebook for experiments with weighted sum loss training https://colab.research.google.com/drive/1q0Ob1eOmQSaja2cHWFoPwN28dO0id38K?usp=sharing
+1. [My notebook for experiments with regular training](https://colab.research.google.com/drive/1FCNOK7t3n39fqMF7vZNrU_2XVykEkwTz?usp=sharing)
+2. [My notebook for experiments with weighted sum loss training](https://colab.research.google.com/drive/1q0Ob1eOmQSaja2cHWFoPwN28dO0id38K?usp=sharing)
 
 ## ✏️ Other materials
 
 ### Reports
 
-1. March 2022 report at Computational Linguistics seminar (in progress) (TODO: paste link on GitHub)
+1. [March 2022 report at Computational Linguistics seminar (in progress)](https://github.com/s1m0000n/multitask-transformers/blob/master/reports/march_2022_specsem/main.pdf)
 
 ## ⚡️ Supported Tasks
 
@@ -119,15 +119,15 @@ Evaluation sub-loop is not currently included here, but implemented in Colab var
 
 #### Russian SuperGLUE
 
-- DaNetQA (https://russiansuperglue.com/tasks/task_info/DaNetQA)
-- PARus (https://russiansuperglue.com/tasks/task_info/PARus)
-- TERRa (https://russiansuperglue.com/tasks/task_info/TERRa)
+- [DaNetQA](https://russiansuperglue.com/tasks/task_info/DaNetQA)
+- [PARus](https://russiansuperglue.com/tasks/task_info/PARus)
+- [TERRa](https://russiansuperglue.com/tasks/task_info/TERRa)
 
 #### Other tasks for Russian
 
 - Russian part of XNLI
-- Twitter sentiment classification (https://study.mokoron.com/)
-- Headline Cause (https://huggingface.co/datasets/IlyaGusev/headline_cause)
+- [Twitter sentiment classification](https://study.mokoron.com/)
+- [Headline Cause](https://huggingface.co/datasets/IlyaGusev/headline_cause)
 
 **Description**
 
