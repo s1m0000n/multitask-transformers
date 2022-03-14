@@ -1,10 +1,11 @@
 \documentclass[aspectratio=169]{beamer}
 \usetheme{Darmstadt}
-% \usepackage{draculatheme}
 \usepackage[utf8]{inputenc}
 \usepackage[normalem]{ulem}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
+\usepackage{minted} 
+\usepackage{hyperref}
 \usepackage[russian]{babel}
 \title{Многозадачное обучение языковых моделей, основанных на механизме внутреннего внимания}
 \author{Погорельцев С. А., н.р. Полякова И. Н.}
@@ -16,10 +17,27 @@
 \frame{\titlepage}
 
 \section[Многозадачное обучение]{}
+ 
+\begin{frame}
+	\frametitle{Многозадачное обучение}
+	\textbf{Многозадачное обучение} (MultiTask Learning) - подполе машинного обучения, в котором одновременно решаются несколько задач, при этом используются общие черты и различия между задачами. Это может привести к повышению эффективности обучения и точности прогнозирования для моделей, специфичных для конкретных задач, по сравнению с отдельным обучением моделей.
+\end{frame}
 
 \begin{frame}
-	\frametitle{Что такое многозадачное обучение?}
-	TODO
+	\frametitle{Языковые модели, основанные на механизме внутреннего внимания}
+	Да да, я про Трансфоремеры и в частности BERT-подобные модели
+	\begin{columns}
+				\begin{column}{0.2\textwidth}
+			\begin{figure}
+	       		\includegraphics[width=1\textwidth]{assets/trf_enc.png}
+	    	\end{figure}
+		\end{column}
+				\begin{column}{0.8\textwidth}
+			\begin{figure}
+	       		\includegraphics[width=1\textwidth]{assets/mha.png} 
+	    	\end{figure}
+		\end{column}
+	\end{columns}
 \end{frame}
 
 \begin{frame}
@@ -175,79 +193,148 @@
 
 \begin{frame}
 	\frametitle{Проблема со средствами многозадачного обучения}
-	Во время первых экспериментов обнаружил, что приходится писать много однообразного и сложного кода, потому, что хороших библиотек для многозадачного обучения Трансформеров пока нет
+	Во время первых экспериментов обнаружил, что приходится писать много однообразного и сложного кода, потому, что хороших библиотек для многозадачного обучения Трансформеров пока нет (или я плохо искал)
 
-	В итоге, была разработна (и продолжает развиваться) небольшая библиотека вокруг экосистемы предобученных моделей и датасетов Hugging Face и PyTorch, которая позволяет декларативно описывать задачи и сама собирает модель, готовит данные с учётом многозадачности
+	В итоге, была разработна (и продолжает развиваться) небольшая библиотека, которая позволяет декларативно описывать задачи и сама собирает модель, готовит данные с учётом многозадачности
 	\begin{itemize}
-		\item Высокоуровневые готовые конфигурации для типичных задач и удобные "ручки"\ для низкоуровневой настройки задачи
-		\begin{itemize}
-			\item Базовая модель - предобученный трансформер из Hugging Face Transformers
-			\item Голова - torch.nn.Module, Hugging Face или готовая
-			\item Функция потерь - из модели Hugging Face, готовые или torch.nn.Module
-			\item Данные - Hugging Face Datasets (готовый или свой)
-			\item Метрики - свой легко расширяемый велосипед
-		\end{itemize}
-		\item Обучение с многозадачным аналогом Trainer или обычный цикл PyTorch
+		\item Высокоуровневые готовые конфигурации для типичных задач
+		\item "Ручки"\ для низкоуровневой настройки задач
+		\item Средства для обучения в обычном цикле PyTorch
+		\item Обучение с многозадачным аналогом Trainer (сейчас перерабатывается)
 	\end{itemize}
 \end{frame}
 
-\begin{frame}
-	\frametitle{Пример конфигурации (3 классификации из Russian SuperGLUE)}
-	TODO
+\begin{frame}[fragile]
+	\frametitle{Пример простой конфигурации задач}
+	\begin{minted}{python}
+tasks = Tasks([
+	SequenceClassificationTask(
+	    name="danetqa",
+	    dataset_dict=load_dataset(...),
+	    preprocessor=Preprocessor([preprocess_danetqa]),
+	    tokenizer_config=TokenizerConfig(max_length=512),
+	), 
+	SequenceClassificationTask(
+	    name="headline_cause",
+	    num_labels=3,
+	    dataset_dict=load_dataset(...),
+	    preprocessor=Preprocessor([preprocess_headline_cause]),
+	    tokenizer_config=cfg
+	)], model_path = "DeepPavlov/rubert-base-cased")
+	\end{minted}
 \end{frame}
 
-\begin{frame}
-	\frametitle{Низкоуровневые возможности конфигурации}
-	TODO
+\begin{frame}[fragile]
+	\frametitle{Низкоуровневая конфигурация задачи}
+	\begin{minted}{python}
+Task(
+    name = "название задачи (для индексации и логов)",
+    head = <объект подкласса torch.nn.Module> | HFHead,
+    data = Data(
+        dataset_dict = <датасет в формате datasets.DatasetDict>,
+        # другое (не обязательно, задано по-умолчанию)
+        configured_tokenizer = ConfiguredTokenizer(
+            model_path, padding = False, truncation = True, max_length
+            ... # другие параметры токенизатора Hugging Face
+        ),
+        preprocessor = Preprocessor(...),
+        columns, # поля, которые нужно приводить к формату PyTorch
+        collator_class, collator_config
+    )
+)
+	\end{minted}
 \end{frame}
 
-\begin{frame}
+\begin{frame}[fragile]
+	\frametitle{Конфигурация головы модели}
+	\begin{itemize}
+		\item Готовая из \texttt{transformers}
+		\begin{minted}[fontsize=\small]{python}
+head = HFHead(class_ = AutoModelForSequenceClassification,
+              config_params = {"num_labels": 2})
+		\end{minted}
+		\item Свой \texttt{torch.nn.Module}
+		\begin{minted}[fontsize=\small]{python}
+class TwoLinears(nn.Module):
+    def __init__(self, ...):
+        layers = [nn.Linear(768, 2048), F.relu, nn.Linear(768, 2)]
+        self.layers = nn.ModuleList(layers)
+        self.loss = nn.CrossEntropyLoss()
+    def forward(self, encoder_outputs, labels, ...):
+        x = encoder_outputs[1]
+        for layer in self.layers: x = layer.forward(x)
+        return {"logits": x, 
+                "loss": self.loss(logits.view(-1, num_labels), 
+                                  labels.view(-1))}
+head = TwoLinears(...)
+		\end{minted}
+	\end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]
 	\frametitle{Обучение с циклом на PyTorch}
-	TODO
+	\begin{minted}[fontsize=\small]{python}
+train_sampler = MultitaskBatchSampler(tasks.data, "train", batch_size=12)
+model = MultitaskModel(encoder_path, tasks.heads)
+# ... инициализация метода оптимизации, перенос модели на GPU ...
+for epoch_num in range(num_epochs):
+  for batch in train_sampler:
+    batch.data.to(device)
+    outputs = model.forward(batch.name, **batch.data)
+    loss = outputs.loss
+    print(f"Training loss: {loss} on task {batch.name}")
+    loss.backward()
+    optimizer.step()
+    lr_scheduler.step()
+    optimizer.zero_grad()
+	\end{minted}
 \end{frame}
 
-\begin{frame}
-	\frametitle{Высокоуровневое обучение (сейчас временно недоступно)}
-	TODO
-\end{frame}
 
 \begin{frame}
 	\frametitle{Готовность и открытый доступ}
-	TODO
+	\begin{itemize}
+		\item Код в открытом доступе \url{https://github.com/s1m0000n/multitask-transformers}
+		\item Буду рад новым контрибьюторам
+		\item Нормальное состояние кодовой базы (pylint > 8)
+		\item Документация в зачаточном состоянии
+		\item Новые вещи реализуются по мере того, что я использую для ВКР
+		\item Планируется публикация статьи
+	\end{itemize}
 \end{frame}
 
 
-\section[Исследование многозадачных трансформеров]{}
+% \section[Исследование многозадачных трансформеров]{}
 
-\begin{frame}
-	\frametitle{Цели и планы}
-	TODO
-\end{frame}
+% \begin{frame}
+% 	\frametitle{Цели и планы}
+% 	TODO
+% \end{frame}
 
-\begin{frame}
-	\frametitle{Работоспособность метода: сходимость}
-	TODO
-\end{frame}
+% \begin{frame}
+% 	\frametitle{Работоспособность метода: сходимость}
+% 	TODO
+% \end{frame}
 
 
-\begin{frame}
-	\frametitle{Работоспособность метода: достижимость хорошего качества}
-	TODO
-\end{frame}
+% \begin{frame}
+% 	\frametitle{Работоспособность метода: достижимость хорошего качества}
+% 	TODO
+% \end{frame}
 
-\begin{frame}
-	\frametitle{Эксперименты с оптимизацией}
-	TODO
-\end{frame}
+% \begin{frame}
+% 	\frametitle{Эксперименты с оптимизацией}
+% 	TODO
+% \end{frame}
 	
-\begin{frame}
-	\frametitle{Эксперименты с архитектурой голов}
-	TODO
-\end{frame}
+% \begin{frame}
+% 	\frametitle{Эксперименты с архитектурой голов}
+% 	TODO
+% \end{frame}
 
-\begin{frame}
-	\frametitle{Что ещё хочется успеть}
-	TODO
-\end{frame}
+% \begin{frame}
+% 	\frametitle{Что ещё хочется успеть}
+% 	TODO
+% \end{frame}
 
 \end{document}
