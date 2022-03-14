@@ -39,11 +39,11 @@ Preparing for training:
     ```python
     train_sampler = MultitaskBatchSampler(tasks.data, "train", batch_size=12)
     ```
-  - Creating a multitask model
+- Creating a multitask model
     ```python
     model = MultitaskModel(encoder_path, tasks.heads)
     ```
-  - Default stuff for training with PyTorch
+- Default stuff for training with PyTorch
     ```python
     optimizer = AdamW(model.parameters(), lr=5e-5)
     num_epochs = 1
