@@ -1,0 +1,253 @@
+\documentclass[aspectratio=169]{beamer}
+\usetheme{Darmstadt}
+% \usepackage{draculatheme}
+\usepackage[utf8]{inputenc}
+\usepackage[normalem]{ulem}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage[russian]{babel}
+\title{Многозадачное обучение языковых моделей, основанных на механизме внутреннего внимания}
+\author{Погорельцев С. А., н.р. Полякова И. Н.}
+\institute{МГУ им. Ломоносова, ф-т ВМК, каф. АЯ}
+\date{2022}
+
+\begin{document}
+
+\frame{\titlepage}
+
+\section[Многозадачное обучение]{}
+
+\begin{frame}
+	\frametitle{Что такое многозадачное обучение?}
+	TODO
+\end{frame}
+
+\begin{frame}
+	\frametitle{Формализация понятия задача}
+	\begin{equation}
+		T_i = \{p_i(x), p_i(y | x), L_i\}
+	\end{equation}
+	\begin{itemize}
+		\item $p_i(x)$ - распределение входных данных
+		\item $p_i(y | x)$ - распределение меток (классификация) / значений (регрессии) в зависимости от входных данных
+		\item $L_i$ - функция потерь
+	\end{itemize}
+	Выборки для задачи
+	\begin{itemize}
+		\item $D_i^{\opreatorname{train}}$ - обучающая
+		\item $D_i^{\opreatorname{val}}$ - валидационная
+		\item $D_i^{\opreatorname{test}}$ - тестовая
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Гипотезы многозадачной модели (Hard Parameter Sharing)}
+Основной вопрос: \textbf{Как огранизовать "переключение"\ на уровне модели?}
+\begin{itemize}
+	\item Конкатенация one-hot вектора задачи к скрытому представлению
+	\begin{figure}
+       	\includegraphics[width=0.8\textwidth]{assets/cat_based_cond.png}
+    \end{figure}
+	\item Добавление вектора смещения - смещение данных задачи
+	\item Умножение - изменение масштаба данных задачи
+	\item Архитектура с несколькими головами (популярна, хорошо работает на практике, в дальнейшем буду говорить о ней, т. к. использую её в работе)
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+	\frametitle{Архитектура с несколькими головами}
+	\begin{columns}
+		\begin{column}{0.5\textwidth}
+			\begin{figure}
+	       		\includegraphics[width=1\textwidth]{assets/multihead_arch.png}
+	    	\end{figure}
+		\end{column}
+		\begin{column}{0.5\textwidth}
+			Введём некоторые обозначения и уточним понятие задачи
+			\begin{itemize}
+				\item $H_i$ - специфичные для задачи слои - голова модели
+				\item $E$ - общие слои, формирующие представления для голов $H_i$
+			\end{itemize}
+			Тогда $i$-ая задача:
+			\begin{equation}
+				T_i = \{p_i(x), p_i(y | x), H_i, L_i\}
+			\end{equation}
+			Forward pass для задачи $T_i$
+			\begin{equation}
+				\opreatorname{F}_i(x) = H_i \circ E \circ x = H_i(E(x))
+			\end{equation}
+		\end{column}
+	\end{columns}
+\end{frame}
+
+\begin{frame}
+	\frametitle{Обучение многоголовой модели (популярные подходы)}
+	\begin{itemize}
+		\item \textbf{Одна задача на батч} Данные всех задач разбиваются на батчи и эти батчи перемешиваются вместе. На каждой эпохе выбирается случайный $j$-ый батч соотвествующий задаче $T_i$ $\opreatorname{batch}_j^i$, а затем всё (почти) как обычно.
+		\item \textbf{Оптимизация (взвешенной) суммы функций потерь} 
+			\begin{itemize}
+				\item Собираются "метабатчи"\ $\{ \operatorname{batch}^{1}_{j_1}, \operatorname{batch}^{2}_{j_2}, ..., \operatorname{batch}^{n}_{j_n} \}$ - множество по 1 случайному батчу для каждой задачи (здесь $n$ штук). 
+				\item Для каждой $i$-ой задачи вычисляется $\opreatorname{fwd}_i = F_i(\operatorname{batch}^{i}_{j_i}), \opreatorname{loss}_i = L_i(f_i)$ и оптимизируется $loss = \sum_{i = 1}^{n} w_i \operatorname{loss}_i$, где $\forall i \text{ } w_i > 0$.
+				\item $w_i$ регулирует важность $i$-ой задачи при оптимизации
+			\end{itemize}
+	\end{itemize}
+	Я экспериментирую с обоими и кажется, что оптимизация суммы работает лучше \sout{что в целом логично, т. к. первый вариант с точки зрения метоптов - тихий ужас}
+\end{frame}
+
+\begin{frame}
+	\frametitle{Алгоритм обучения с оптимизацией по одной задаче}
+	\begin{algorithmic}
+		\For {$\operatorname{epochNum} \gets \overline{0, N} $}
+			\ForAll {$\operatorname{batch}^{i}_{j} \in \operatoname{batches.shuffle}() $}
+				\State $\operatoname{outputs} \gets F_i(batch^{i}_{j})$
+				\State $\operatorname{loss} \gets L_i(\operatoname{outputs})$
+				\State $\operatorname{F_i} \gets \operatorname{F_i} - \alpha \nabla \operatorname{loss}$ \Comment{Тут может быть любой метод оптимизации}
+			\EndFor
+		\EndFor
+	\end{algorithmic}
+	Minibatch градиентный спуск здесь для упрощения примера, чаще используется Adam или AdamW для обучения Трансформеров (в т.ч. многозадачных)
+\end{frame}
+
+\begin{frame}
+	\frametitle{Алгоритм обучения с оптимизацией по сумме функций потерь}
+	\begin{algorithmic}
+		\For {$\operatorname{epochNum} \gets \overline{0, N} $} \Comment{Итерация по эпохам}
+			\ForAll {$\operatorname{metabatch}_{j} \in \operatoname{metabatches.shuffle}() $}  \Comment{Итерация по "метабатчам"}
+				\State $\operatorname{loss} \gets 0$
+				\ForAll {$\operatorname{batch}^{i}_{j} \in \operatorname{metabatch}_{j}$} \Comment{Итерация по задачам и их батчам}
+					\State $\operatoname{outputs}^{i}_{j} \gets F_i(\operatorname{batch}^{i}_{j})$
+					\State $\operatoname{loss}_j \gets \operatoname{loss}_j + w_i L_i(\operatoname{outputs}^{i}_{j}) $
+				\EndFor
+				% \State $\operatorname{F_i} \gets \operatorname{F_i} - \alpha \nabla \operatorname{loss}$ \Comment{Тут может быть любой метод оптимизации}
+				% \State Подумать шо здесь (посмотреть что делает торч)
+				\State loss_j.backward(); optimizer.step(); optimizer.zero\_grad() \Comment{*}
+			\EndFor
+		\EndFor
+	\end{algorithmic}
+	*: магия автоматического дифференцирования PyTorch, а на самом деле
+	\begin{equation*}
+		\nabla loss_j(x^{i, j}) = \nabla \sum_{i = 1}^{n} w_i L_i(H_i(E(x^{i, j})) \text{ (продолжение на след. слайде)}
+	\end{equation*}
+	% Minibatch градиентный спуск здесь для упрощения примера, чаще используется Adam или AdamW для обучения Трансформеров (в т.ч. многозадачных)
+\end{frame}
+
+\begin{frame}
+	\frametitle{Подробнее про обновление весов для суммы}
+	Рассмотрим частную производную для $k$-ой координате
+	\begin{equation*}
+		(\nabla loss_j (x^{i, j}))_k = \frac{\partial}{\partial x^{i, j}_k} \sum_{i = 1}^{n} w_i L_i(H_i(E(x^{i, j})) = \sum_{i = 1}^{n} w_i \frac{\partial L_i(H_i(E(x^{i, j}))}{\partial x^{i, j}_k}
+	\end{equation*}
+	Дальше считается как обычно, как и в предыдущем случае градиент от конкретной функции потерь с использованием правила цепочки $\frac{\partial y}{\partial x} = \frac{\partial y}{\partial z} \frac{\partial z}{\partial x}$
+
+	После вычисления градиента делается шаг метода оптимизации обновляются все веса и для общих слоёв, и для \textbf{каждой головы} (backpropagation)
+
+	\begin{itemize}
+		\item Полученный метод - обобщение первого (если $w$ - one-hot вектор, то получаем первый метод буквально)
+		\item Снижается проблема забывания, поскольку оптимизация всего сразу
+		\item Возможно, стоит совместить первый и второй подходы
+		\begin{itemize}
+			\item Сначала сделать базовую оптимизацию для всех задач
+			\item Затем заниматься более тонкой настройкой позадачных весов
+		\end{itemize}
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Некоторые важные особенности}
+\begin{itemize}
+	\item \textbf{Transfer Learning}: знания для одной задачи помогают в решении другой
+	\item \textbf{Representation Learning}: перенос знаний часто связан с выучиванием общими слоями хороших векторных представлений входных признаков
+	\item \textbf{Регуляризация}: многозадачное обучение работает как регуляризация и в случае переобучения всегда можно добавить задач для улучшения генерализации или сделать общими больше слоёв
+	\item \textbf{Эффективное использование}: модель одна, пусть и крупнее
+\end{itemize}
+Сложности
+\begin{itemize}
+	\item \textbf{Negative Transfer}: бывает, что задачи отрицательно влияют на решение друг друга. Наиболее вероятные причины:
+	\begin{itemize}
+		\item Недостаточно выразительная модель (часто многозадачные модели больше)
+		\item Сложности с оптимизацией (межзадачная интерференция, задачи могут обучаться с разной скоростью)
+	\end{itemize}
+	\item \textbf{Совместность задач}: какие задачи будут хорошо работать вместе? На этот вопрос ответ пока можно искать только экспериментами (за 1 эпоху понятно)
+\end{itemize}
+\end{frame}
+
+\section[Разработка модуля]{}
+
+\begin{frame}
+	\frametitle{Проблема со средствами многозадачного обучения}
+	Во время первых экспериментов обнаружил, что приходится писать много однообразного и сложного кода, потому, что хороших библиотек для многозадачного обучения Трансформеров пока нет
+
+	В итоге, была разработна (и продолжает развиваться) небольшая библиотека вокруг экосистемы предобученных моделей и датасетов Hugging Face и PyTorch, которая позволяет декларативно описывать задачи и сама собирает модель, готовит данные с учётом многозадачности
+	\begin{itemize}
+		\item Высокоуровневые готовые конфигурации для типичных задач и удобные "ручки"\ для низкоуровневой настройки задачи
+		\begin{itemize}
+			\item Базовая модель - предобученный трансформер из Hugging Face Transformers
+			\item Голова - torch.nn.Module, Hugging Face или готовая
+			\item Функция потерь - из модели Hugging Face, готовые или torch.nn.Module
+			\item Данные - Hugging Face Datasets (готовый или свой)
+			\item Метрики - свой легко расширяемый велосипед
+		\end{itemize}
+		\item Обучение с многозадачным аналогом Trainer или обычный цикл PyTorch
+	\end{itemize}
+\end{frame}
+
+\begin{frame}
+	\frametitle{Пример конфигурации (3 классификации из Russian SuperGLUE)}
+	TODO
+\end{frame}
+
+\begin{frame}
+	\frametitle{Низкоуровневые возможности конфигурации}
+	TODO
+\end{frame}
+
+\begin{frame}
+	\frametitle{Обучение с циклом на PyTorch}
+	TODO
+\end{frame}
+
+\begin{frame}
+	\frametitle{Высокоуровневое обучение (сейчас временно недоступно)}
+	TODO
+\end{frame}
+
+\begin{frame}
+	\frametitle{Готовность и открытый доступ}
+	TODO
+\end{frame}
+
+
+\section[Исследование многозадачных трансформеров]{}
+
+\begin{frame}
+	\frametitle{Цели и планы}
+	TODO
+\end{frame}
+
+\begin{frame}
+	\frametitle{Работоспособность метода: сходимость}
+	TODO
+\end{frame}
+
+
+\begin{frame}
+	\frametitle{Работоспособность метода: достижимость хорошего качества}
+	TODO
+\end{frame}
+
+\begin{frame}
+	\frametitle{Эксперименты с оптимизацией}
+	TODO
+\end{frame}
+	
+\begin{frame}
+	\frametitle{Эксперименты с архитектурой голов}
+	TODO
+\end{frame}
+
+\begin{frame}
+	\frametitle{Что ещё хочется успеть}
+	TODO
+\end{frame}
+
+\end{document}

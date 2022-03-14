@@ -1,149 +1,79 @@
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datasets import DatasetDict
-from transformers import AutoModelForSequenceClassification
-from typing import Optional, Callable, Iterable, Type, Union, Dict, Set, List, Tuple, Any
+from typing import Any, Callable, Dict, Iterable, Set, Union, Optional
 
-from .data import Data, MultitaskDataLoader, MultitaskBatchSampler
-from .metrics import SequenceClassificationMetrics
-from .models import Head, MultitaskModel
-from .preprocessing import Preprocessor
-from .tokenizers import TokenizerConfig
+import torch.nn as nn
+from transformers.file_utils import ModelOutput
+
+from .models import MultitaskModel, HFHead
+from .data import Data
+from .utils import validate_isinstance
 
 
-@dataclass(frozen=True)
+@dataclass
 class Task:
     name: str
-    head: Head
+    head: Union[HFHead, nn.Module]
     data: Data
-    metrics: Optional[Callable] = None
-
-    def __post_init__(self):
-        if not isinstance(self.name, str):
-            raise TypeError("Wrong type for 'name', must be an instance of 'str'")
-        if not isinstance(self.head, Head):
-            raise TypeError("Wrong type for 'head', must be an instance of 'Head'")
-        if not isinstance(self.data, Data):
-            raise TypeError("Wrong type for 'data', must be an instance of 'Data'")
-        if self.metrics is not None and not callable(self.metrics):
-            raise TypeError("Wrong type for 'metrics', must be a callable, _call__() method not implemented")
-
-
-class CastableToTask(ABC):
-    """
-    Abstract class for specific _tasks, which can be casted to Task with implemented method
-    'make_task(model_path: str) -> Task'
-    """
-
-    @abstractmethod
-    def make_task(self, model_path: str) -> Task:
-        pass
-
-
-@dataclass(frozen=True)
-class SequenceClassificationTask(CastableToTask):
-    name: str
-    dataset_dict: DatasetDict
-    num_labels: int = 2
-    metrics: Optional[SequenceClassificationMetrics] = None
-    preprocessor: Optional[Preprocessor] = None
-    tokenizer_config: Optional[TokenizerConfig] = None
+    loss: Optional[Callable[[ModelOutput], Any]] = None
+    compute_metrics: Optional[Callable[[Any], Dict[str, Any]]] = None
 
     def __post_init__(self) -> None:
-        if self.metrics is not None and not isinstance(self.metrics, SequenceClassificationMetrics):
-            raise TypeError("Wrong type for 'metrics', must be either equal None, "
-                            "or be an instance of 'SequenceClassificationMetrics'")
-
-    def make_task(self, model_path: str) -> Task:
-        tokenizer_config = TokenizerConfig() if self.tokenizer_config is None else self.tokenizer_config
-        return Task(
-            name=self.name,
-            head=Head(
-                class_=AutoModelForSequenceClassification,
-                config_params={"num_labels": self.num_labels},
-            ),
-            data=Data(
-                data=self.dataset_dict,
-                configured_tokenizer=tokenizer_config.make_configured_tokenizer(model_path),
-                preprocessor=self.preprocessor
-            ),
-            metrics=self.metrics
-        )
+        validate_isinstance(self.name, str, "name")
+        validate_isinstance(self.head, [HFHead, nn.Module], "head")
+        validate_isinstance(self.data, Data, "data")
+        validate_isinstance(self.loss, Callable, "loss", optional=True)
+        validate_isinstance(self.compute_metrics, Callable, "compute_metrics", optional=True)
 
 
 class Tasks:
-    def __init__(self, model_path: str, tasks: Iterable[Union[Task, Type[CastableToTask]]]) -> None:
-        if not isinstance(model_path, str):
-            raise TypeError("Wrong type for 'model_path', must be an instance of 'str'")
-        self.model_path = model_path
-        self._model = None
-        self._tasks = {}
-        for task in tasks:
-            if isinstance(task, Task):
-                self._tasks[Task.name] = Task
-            else:
-                cast_fun = getattr(task, "make_task", None)
-                if cast_fun is None:
-                    raise AttributeError("Expected _tasks to contain instances of Task or classes castable to Task, "
-                                         "implementing method 'make_task(model_path: str) -> Task', "
-                                         "got class, which is not Task, which not implements method 'make_task'")
-                casted_task = cast_fun(self.model_path)
-                if not isinstance(casted_task, Task):
-                    raise TypeError(f"Wrong type for result of using 'cast_task' on castable task - "
-                                    f"instance of '{type(task)}', expected 'Task', but got '{type(casted_task)}'")
-                self._tasks[casted_task.name] = casted_task
+    def __init__(self, tasks: Iterable[Any], model_path: Optional[str] = None) -> None:
+        self.tasks = {}
+        for task in validate_isinstance(tasks, Iterable, "tasks"):
+            if not isinstance(task, Task):
+                to_task = getattr(task, "to_task", None)
+                if to_task is None:
+                    raise AttributeError("Tasks passed to 'tasks' must be either instances of 'Task', "
+                                         "or implement 'to_task(model_path: str)' method. Got element "
+                                         "which failed for both condition checks")
+                if model_path is None:
+                    raise TypeError("'model_path' must be specified, if tasks need to be configured with .to_task()")
+                task = to_task(validate_isinstance(model_path, str, "model_path"))
+                if not isinstance(task, Task):
+                    raise TypeError("'to_task' must return a 'Task' instance")
+            validate_isinstance(task, Task, "task")
+            self.tasks[task.name] = task
 
-    def __getitem__(self, task_name: str) -> Task:
-        if task_name not in self._tasks:
-            raise KeyError(f"Task named {task_name} is not found")
-        return self._tasks[task_name]
+    def __getitem__(self, item: str) -> Task:
+        return self.tasks[item]
+
+    def keys(self):
+        return self.tasks.keys()
+
+    def values(self):
+        return self.tasks.values()
+
+    def items(self):
+        return self.tasks.items()
 
     @property
     def names(self) -> Set[str]:
-        return set(self._tasks.keys())
+        return set(self.keys())
 
     @property
-    def tasks(self) -> Dict[str, Task]:
-        return self._tasks
-
-    @property
-    def heads(self) -> Dict[str, Head]:
-        return {name: task.head for name, task in self.tasks.items()}
+    def heads(self) -> Dict[str, Union[HFHead, nn.Module]]:
+        return {name: task.head for name, task in self.items()}
 
     @property
     def data(self) -> Dict[str, Data]:
-        return {name: task.data for name, task in self.tasks.items()}
+        return {name: self[name].data for name in self.names}
 
-    @property
-    def model(self) -> MultitaskModel:
-        if self._model is None:
-            self._model = MultitaskModel.create(self.model_path, self.heads)
-        return self._model
+    def model(self, encoder_path: str) -> MultitaskModel:
+        return MultitaskModel(encoder_path, self.heads)
 
-    def keys(self) -> Set[str]:
-        return self.names
+    
 
-    def values(self):
-        return set(self._tasks.values())
+    
+    
 
-    def items(self) -> Dict[str, Task]:
-        return self.tasks
 
-    def make_model(self) -> MultitaskModel:
-        return self.model
 
-    def make_data_loader(self, **kwargs: Any) -> MultitaskDataLoader:
-        """
-        Creates 'MultitaskDataloader' from all tasks data
-        :param kwargs: Same args as 'MultitaskDataLoader' without 'task_datasets'
-        :return: New, configured instance of 'MultitaskDataLoader'
-        """
-        return MultitaskDataLoader(task_datasets=self.data, **kwargs)
-
-    def make_batch_sampler(self, **kwargs) -> MultitaskBatchSampler:
-        """
-        Created 'MultitaskBatchSampler' instance using data obout tasks
-        :param kwargs: Same args as 'MultitaskBatchSampler' without 'tasks'
-        :return: New, configured instance of 'MultitaskBatchSampler'
-        """
-        return MultitaskBatchSampler(tasks=self, **kwargs)

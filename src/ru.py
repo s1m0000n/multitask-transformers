@@ -93,3 +93,8 @@ def preprocess_parus(sample: Dict[str, str]) -> Dict[str, Union[Tuple[str, str],
     question = questions[sample["question"]][question_number]
     inputs = tuple(f'{sample["premise"]} {question} {sample[f"choice{j}"]}' for j in (1, 2))
     return {"label": sample["label"], "input": inputs}
+
+
+def preprocess_headline_cause(sample: Dict[str, Any]) -> Dict[str, Union[str, int]]:
+    inputs = (sample["left_title"], sample["right_title"])
+    return {"label": sample["label"], "input": inputs}

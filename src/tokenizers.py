@@ -1,11 +1,12 @@
-import transformers
 from dataclasses import dataclass, field
 from transformers.file_utils import PaddingStrategy, TensorType
-from transformers.tokenization_utils_base import TruncationStrategy, TextInput, TextInputPair, PreTokenizedInput, \
-    PreTokenizedInputPair, EncodedInput, EncodedInputPair, BatchEncoding
-
 from typing import Any, Union, Optional, Dict, List, Callable
-from transformers import PreTrainedTokenizerBase, PreTrainedTokenizer, PreTrainedTokenizerFast
+from transformers.tokenization_utils import PreTrainedTokenizer
+from transformers.tokenization_utils_base import PreTrainedTokenizerBase, \
+    TruncationStrategy, TextInput, TextInputPair, PreTokenizedInput, \
+    PreTokenizedInputPair, EncodedInput, EncodedInputPair, BatchEncoding
+from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
+from transformers.models.auto.tokenization_auto import AutoTokenizer
 
 
 TokenizerInputT = Dict[str, Union[
@@ -41,7 +42,7 @@ class ConfiguredTokenizer:
     def __post_init__(self) -> None:
         if self.init_config is None:
             self.init_config = {}
-        tokenizer = transformers.AutoTokenizer.from_pretrained(self.model_path, **self.init_config)
+        tokenizer = AutoTokenizer.from_pretrained(self.model_path, **self.init_config)
         self.tokenizer = tokenizer
 
         def configured_tokenizer(batch: TokenizerInputT) -> BatchEncoding:
@@ -68,7 +69,7 @@ class ConfiguredTokenizer:
         return self(batch_text_or_text_pairs)
 
 
-@dataclass(frozen=True)
+@dataclass
 class TokenizerConfig:
     init_config: Optional[Dict[str, Any]] = None
     add_special_tokens: bool = True

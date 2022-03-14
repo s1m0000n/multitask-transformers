@@ -1,3 +1,4 @@
+from typing import Optional, TypeVar, Type, Iterable, Any, Callable, Iterator, Dict, Union
 from operator import lt
 
 from functools import partial
@@ -8,18 +9,46 @@ import itertools
 import numpy as np
 import requests
 
-from typing import Iterable, Any, Optional, Callable, Iterator, Dict, TypeVar
+T = TypeVar("T")
 
 
-def flatten(data: Iterable[Any],
-            unpack_cond: Optional[Callable[[Any], bool]] = None,
-            drop_cond: Optional[Callable[[Any], bool]] = None) -> Iterator[Any]:
+def validate_isinstance(
+        value: T,
+        expected_type_s: Union[Type, Iterable[Type]],
+        name: Optional[str] = None,
+        optional: bool = False
+) -> T:
+    if optional and value is None:
+        return value
+
+    expected_types = expected_type_s if isinstance(expected_type_s, Iterable) else [expected_type_s, ]
+
+    # Checking if any matches & leaving if so
+    for expected_type in expected_types:
+        if isinstance(value, expected_type):
+            return value
+
+    # Got here <=> is not matchable with expected types
+    actual_type = type(value)
+    index_repr = f"for value {value}" if name is None else f"of '{name}'"
+    type_repr = " | ".join(map(str, expected_types))
+    nullability = " or None" if optional else ""
+    raise TypeError(f"Wrong type '{actual_type}' {index_repr}, must be an instance of '{type_repr}'{nullability}")
+
+
+def flatten(
+        data: Iterable[T],
+        unpack_cond: Optional[Callable[[T], bool]] = None,
+        drop_cond: Optional[Callable[[T], bool]] = None,
+) -> Iterator[T]:
     if unpack_cond is None:
         def unpack_cond(elem: Any) -> bool:
             return isinstance(elem, Iterable)
+
     if drop_cond is None:
         def drop_cond(_) -> bool:
             return False
+
     for item in data:
         if not drop_cond(item):
             if unpack_cond(item):
@@ -94,9 +123,6 @@ def split_index(length: int,
         result[key] = index[prev: value]
         prev = value
     return result
-
-
-T = TypeVar('T')
 
 
 def itercat(*iterables: Iterable[T]) -> Iterable[T]:
