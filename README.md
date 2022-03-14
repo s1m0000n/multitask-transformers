@@ -111,7 +111,7 @@ Evaluation sub-loop is not currently included here, but implemented in Colab var
 
 ### Reports
 
-1. [March 2022 report at Computational Linguistics seminar (in progress)](https://github.com/s1m0000n/multitask-transformers/blob/master/reports/march_2022_specsem/main.pdf)
+1. [March 2022 report at Computational Linguistics seminar](https://github.com/s1m0000n/multitask-transformers/blob/master/reports/march_2022_specsem/main.pdf)
 
 ## ⚡️ Supported Tasks
 

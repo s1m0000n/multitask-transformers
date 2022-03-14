@@ -205,6 +205,8 @@
 	\end{itemize}
 \end{frame}
 
+\subsection{Примеры работы с библиотекой}
+
 \begin{frame}[fragile]
 	\frametitle{Пример простой конфигурации задач}
 	\begin{minted}{python}
@@ -291,6 +293,7 @@ for epoch_num in range(num_epochs):
 	\end{minted}
 \end{frame}
 
+\subsection{Дополнительная информация}
 
 \begin{frame}
 	\frametitle{Готовность и открытый доступ}
@@ -298,8 +301,8 @@ for epoch_num in range(num_epochs):
 		\item Код в открытом доступе \url{https://github.com/s1m0000n/multitask-transformers}
 		\item Буду рад новым контрибьюторам
 		\item Нормальное состояние кодовой базы (pylint > 8)
-		\item Документация в зачаточном состоянии
 		\item Новые вещи реализуются по мере того, что я использую для ВКР
+		\item Если есть идеи, что стоит улучшить / добавить - создавайте Issue
 		\item Планируется публикация статьи
 	\end{itemize}
 \end{frame}
@@ -324,12 +327,29 @@ for epoch_num in range(num_epochs):
 \end{frame}
 
 \begin{frame}
-	\frametitle{Сходимость и достижимость результатов однозадачных моделей}
-	Сходимость даже с деревянной оптимизацией
+	\frametitle{Сходимость}
+	\begin{columns}
+		\begin{column}{0.3\textwidth}
+			\begin{figure}
+	       		\includegraphics[width=0.7\textwidth]{assets/ttl.png}
+	    	\end{figure}
+		\end{column}
+		\begin{column}{0.7\textwidth}
+			\begin{figure}
+	       		\includegraphics[width=0.8\textwidth]{assets/conv_scatter.png}
+	    	\end{figure}
+		\end{column}
+	\end{columns}
+\end{frame}
 
-	Резы достижимы
-
-	Графичек
+\begin{frame}
+	\frametitle{Анализ первого эксперимента}
+	\begin{itemize}
+		\item Одновременная сходимость возможна, даже с простым методом оптимизации
+		\item Похоже, что с некоторого момента начинается перенос знаний
+		\item Задачи с малыми выборками выигрывают от больших “соседей”
+		\item Большое внимание стоит уделять оптимизации, например, хорошо работает увеличенное количество шагов разогрева (warmup steps)
+	\end{itemize}
 \end{frame}
 
 
@@ -377,13 +397,24 @@ for epoch_num in range(num_epochs):
 \end{frame}
 
 \begin{frame}
-	\frametitle{Результаты первых экспериментов}
+	\frametitle{Экспериментальные наблюдения}
+	\begin{itemize}
+		\item Обучение с оптимизацией по взвешенной сумме лоссов
 		\begin{itemize}
-		\item Рассматривается фиксированный набор задач (TODO)
-		\item Такие то такие то параметры (TODO)
+			\item Стабильная сходимость
+			\item Грубо оптимизирует всё сразу
+		\end{itemize}
+		\item Обучение с позадачной оптимизацией
+		\begin{itemize}
+			\item Медленная и нестабильная сходимость
+			\item Наблюдается следующее поведение
+			\begin{itemize}
+				\item Хорошо пооптимизировал некоторую задачу
+				\item Одновременно в разной степени просел на других 
+				\item Получаем в целом скачкообразное улучшение лоссов и метрик
+			\end{itemize}
+		\end{itemize}
 	\end{itemize}
-	Результаты:
-	Табличка (TODO)
 \end{frame}
 
 \subsection{Negative Transfer}
@@ -492,13 +523,16 @@ for epoch_num in range(num_epochs):
 \end{frame}
 
 \begin{frame}
-	\frametitle{Результаты первых экспериментов с разными гипотезами}
+	\frametitle{Что успел сделать по этому пункту}
 	\begin{itemize}
-		\item Рассматривается фиксированный набор задач (TODO)
-		\item Такие то такие то параметры (TODO)
+		\item Первая гипотеза точно работает, с ней были основные эксперименты на данный момент
+		\item Первая гипотеза начинает плохо работать, если много задач / сложные задачи
+		\item $\Rightarrow$ первая гипотеза не достаточно выразительна
+		\item Вторая гипотеза работает (сходится)
+		\item Вторая гипотеза работает не хуже первой
+		\item Третья гипотеза нормально работала в однозадачной модели
+		\item Продолжаю активно тестировать данные гипотезы
 	\end{itemize}
-	Результаты:
-	Табличка (TODO)
 \end{frame}
 
 \subsection{Russian SuperGLUE}
