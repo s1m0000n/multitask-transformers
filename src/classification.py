@@ -18,13 +18,13 @@ from .tokenizers import TokenizerConfig
 from .utils import validate_isinstance
 
 
-def sequence_classification_compute_metrics(logits: np.ndarray, labels: np.ndarray, average_f1: str = "binary") -> Dict[str, float]:
+def sequence_classification_compute_metrics(logits: np.ndarray, labels: np.ndarray, average: str = "binary") -> Dict[str, float]:
     predictions = np.argmax(logits, axis=-1)
     return {
         "accuracy": accuracy_score(labels, predictions),
-        "precision": precision_score(labels, predictions),
-        "recall": recall_score(labels, predictions),
-        "f1": f1_score(labels, predictions, average=average_f1)
+        "precision": precision_score(labels, predictions, average=average),
+        "recall": recall_score(labels, predictions, average=average),
+        "f1": f1_score(labels, predictions, average=average)
     }
 
 

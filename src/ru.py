@@ -4,7 +4,7 @@ import random
 from re import findall
 from typing import Optional, Dict, Any, Union, Tuple
 
-import datasets
+from datasets import Dataset, DatasetDict
 import pandas as pd
 
 from .utils import download, split_index
@@ -14,7 +14,7 @@ def load_mokoron(positive_url: str = 'https://www.dropbox.com/s/fnpq3z4bcnoktiv/
                  negative_url: str = 'https://www.dropbox.com/s/r6u59ljhhjdg6j0/negative.csv?dl=1',
                  splits: Optional[Dict[str, float]] = None, shuffle: bool = True,
                  cache_path: str = 'dataset_cache/mokoron',
-                 input_field: str = "input", label_field: str = "label") -> datasets.DatasetDict:
+                 input_field: str = "input", label_field: str = "label") -> DatasetDict:
     """
     Loading the mokoron dataset by url / from cache, preparing a splitted shuffled DatasetDict
 
@@ -42,19 +42,19 @@ def load_mokoron(positive_url: str = 'https://www.dropbox.com/s/fnpq3z4bcnoktiv/
         download(positive_url, cache_path[:-1])
     if not os.path.isfile(negative_filepath):
         download(negative_url, cache_path[:-1])
-    pos_df = pd.read_csv(positive_filepath, sep=';', header=None)
+    pos_df: pd.DataFrame = pd.read_csv(positive_filepath, sep=';', header=None)
     pos_df[label_field] = 1
     pos_df.rename(columns={3: input_field}, inplace=True)
     pos_df = pos_df[[input_field, label_field]]
-    neg_df = pd.read_csv(negative_filepath, sep=';', header=None)
+    neg_df: pd.DataFrame = pd.read_csv(negative_filepath, sep=';', header=None)
     neg_df[label_field] = 0
     neg_df.rename(columns={3: input_field}, inplace=True)
     neg_df = neg_df[[input_field, label_field]]
     df = pd.concat([pos_df, neg_df], ignore_index=True)
     sub_datasets = {}
     for part, indices in split_index(len(df), splits, shuffle).items():
-        sub_datasets[part] = datasets.Dataset.from_pandas(df.iloc[indices])
-    return datasets.DatasetDict(sub_datasets)
+        sub_datasets[part] = Dataset.from_pandas(df.iloc[indices])
+    return DatasetDict(sub_datasets)
 
 
 def preprocess_danetqa(sample: Dict[str, Any]) -> Dict[str, str]:

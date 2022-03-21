@@ -70,10 +70,4 @@ class Tasks:
     def model(self, encoder_path: str) -> MultitaskModel:
         return MultitaskModel(encoder_path, self.heads)
 
-    
-
-    
-    
-
-
 
