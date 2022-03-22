@@ -94,18 +94,11 @@ from src.tokenizers import TokenizerConfig
 
 ## 📒 Notebooks
 
-### Examples
-
-Evaluation sub-loop is not currently included here, but implemented in Colab variants
-
-1. [Training on 3 Russian SuperGLUE tasks with optimization on weighted sum of losses](https://github.com/s1m0000n/multitask-transformers/blob/master/examples/sum_losses.ipynb)
-2. [Training on 2 other tasks for Russian with regular optimization & custom multilayer head](https://github.com/s1m0000n/multitask-transformers/blob/master/examples/custom_head.ipynb)
-3. [Notebook template for fast manual tests on components being self-functioning and integration with others](https://github.com/s1m0000n/multitask-transformers/blob/master/examples/testing_template.ipynb)
-
 ### Colab
 
-1. [My notebook for experiments with regular training](https://colab.research.google.com/drive/1FCNOK7t3n39fqMF7vZNrU_2XVykEkwTz?usp=sharing)
-2. [My notebook for experiments with weighted sum loss training](https://colab.research.google.com/drive/1q0Ob1eOmQSaja2cHWFoPwN28dO0id38K?usp=sharing)
+1. [Experiments with regular training](https://colab.research.google.com/drive/1FCNOK7t3n39fqMF7vZNrU_2XVykEkwTz?usp=sharing)
+2. [Experiments with sum loss training](https://colab.research.google.com/drive/1q0Ob1eOmQSaja2cHWFoPwN28dO0id38K?usp=sharing)
+3. [Experiments with sum loss & custom heads](https://colab.research.google.com/drive/1UBPOriaxwOZf44kCArKmammOMNLrupOo?usp=sharing)
 
 ## ✏️ Other materials
 
@@ -118,6 +111,12 @@ Evaluation sub-loop is not currently included here, but implemented in Colab var
 ### ✅ Batteries included
 
 #### Russian SuperGLUE
+
+The plans have changes, so right now Russian SuperGLUE tasks are not top priority
+
+Current research focused more on other tasks with more usable data
+
+DaNetQA solution is planned to be developed further, as a goal of trying to use multitask learning for tasks with smaller datasets
 
 - [DaNetQA](https://russiansuperglue.com/tasks/task_info/DaNetQA)
 - [PARus](https://russiansuperglue.com/tasks/task_info/PARus)
