@@ -91,6 +91,19 @@ from src.tasks import Tasks
 from src.tokenizers import TokenizerConfig
 ```
 
+## 🎯 Goals
+
+This project is all about NLP, particularly Transformers, especially BERT-like models for English & Russian (highest priority) and other languages (all code is build with the idea that it could be used for any language in mind, expect for the `ru`, `en`(planned) modules, for some utils for the corresponding languages' tasks)
+
+1. Developing a nice thing to use when you are about to do a bit multitasking
+2. Studying multitask learning for English & Russian
+3. Multitask learning as a way of "helping" tasks with small datasets
+4. Solving optimization challenges & negative transfer for such complicated models
+5. Studying perspective head architectures for complex language understanding tasks
+6. Learn & become stronger in Deep Learning, NLP, Multitask Learning (personal)
+7. Just have some fun
+
+
 ## 📒 Notebooks
 
 ### Colab
@@ -164,7 +177,7 @@ Tasks, which are supported on model level, but do not have implemented preproces
 
 - Lenta.ru classification (https://github.com/yutkin/Lenta.Ru-News-Dataset)
 
-### 🎯 Planned
+### 🗓 Planned
 
 #### Other tasks for Russian
 - SberQUAD (https://arxiv.org/abs/1912.09723)
