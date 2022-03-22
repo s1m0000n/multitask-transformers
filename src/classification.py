@@ -39,16 +39,17 @@ class NLinearsHead(nn.Module):
             dropout: float = 0.1,
             output_size: int = 2,
             encoder_hidden_size: int = 768,
+            num_labels: int = 2,
             linear_hidden_size: Optional[int] = None,
             activation_fun: Optional[Callable] = F.relu
     ) -> None:
         super().__init__()
 
+        self.output_size = validate_isinstance(output_size, int, "output_size")
         self.num_layers = validate_isinstance(num_layers, int, "num_layers")
         if self.num_layers < 1:
             raise ValueError("'num_layers' must be >= 1")
         validate_isinstance(dropout, float, "dropout")
-        validate_isinstance(output_size, int, "output_size")
         validate_isinstance(encoder_hidden_size, int, "encoder_hidden_size")
         if linear_hidden_size is None:
             linear_hidden_size = encoder_hidden_size
@@ -58,12 +59,12 @@ class NLinearsHead(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.layers = nn.ModuleList()
         if self.num_layers == 1:
-            self.layers.append(nn.Linear(encoder_hidden_size, output_size))
+            self.layers.append(nn.Linear(encoder_hidden_size, self.output_size))
         else:
             self.layers.append(nn.Linear(encoder_hidden_size, linear_hidden_size))
             for _ in range(self.num_layers - 2):
                 self.layers.append(nn.Linear(linear_hidden_size, linear_hidden_size))
-            self.layers.append(nn.Linear(linear_hidden_size, output_size))
+            self.layers.append(nn.Linear(linear_hidden_size, self.output_size))
 
         self.activation_fun = validate_isinstance(activation_fun, Callable, "activation_fun")
 
@@ -85,14 +86,13 @@ class NLinearsHead(nn.Module):
         # Determining loss type & computing it
         loss = None
         if labels is not None:
-            num_labels = len(torch.unique(labels))
-            if num_labels == 1:
+            if self.output_size == 1:
                 # regression
                 loss_fun = nn.MSELoss()
-                loss = loss_fun(logits.squeeze(), labels.squeeze()) if num_labels == 1 else loss_fun(logits, labels)
-            elif num_labels > 1 and (labels.dtype == torch.long or labels.dtype == torch.int):
+                loss = loss_fun(logits.squeeze(), labels.squeeze()) if self.output_size == 1 else loss_fun(logits, labels)
+            elif self.output_size > 1 and (labels.dtype == torch.long or labels.dtype == torch.int):
                 # single label classification
-                loss = nn.CrossEntropyLoss()(logits.view(-1, num_labels), labels.view(-1))
+                loss = nn.CrossEntropyLoss()(logits.view(-1, self.output_size), labels.view(-1))
             else:
                 # multi label classification
                 loss = nn.BCEWithLogitsLoss()(logits, labels)
