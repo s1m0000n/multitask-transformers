@@ -3,7 +3,7 @@
 [![Open In Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1FCNOK7t3n39fqMF7vZNrU_2XVykEkwTz?usp=sharing)
 ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/s1m0000n/multitask-transformers/Pylint?label=pylint)
 
-Research project at MSU about multitask Transformer-based language models and my 4th year graduation paper
+Open research project (started at MSU) about multitask Transformer-based language models and my 4th year graduation paper
 
 Anyone interested in joining the research & contributing to the project is welcome! It's planned to release a paper on the results of the research (alongside graduation project), so I'd be happy to have coauthors. If you are interested, please contact me by email pogorelcevsa@gmail.com or in Telegram https://t.me/s1m00n 
 
@@ -99,12 +99,6 @@ from src.tokenizers import TokenizerConfig
 2. [Experiments with sum loss training](https://colab.research.google.com/drive/1q0Ob1eOmQSaja2cHWFoPwN28dO0id38K?usp=sharing)
 3. [Experiments with sum loss & custom heads](https://colab.research.google.com/drive/1UBPOriaxwOZf44kCArKmammOMNLrupOo?usp=sharing)
 
-### ✏️ Other materials
-
-### Reports
-
-1. [March 2022 report at Computational Linguistics seminar](https://github.com/s1m0000n/multitask-transformers/blob/master/reports/march_2022_specsem/main.pdf)
-
 ## Figured out stuff so far
 
 - The code is working (most of it, in most cases)
@@ -186,3 +180,16 @@ Tasks, which are supported on model level, but do not have implemented preproces
 Some great stuff is just out of scope for the research I'm doing right now, sorry for that
 
 For better or worse, these are some tasks, that I'm not currently interested in and not implementing myself, because of very limited time, lack of resources (all I have is a Colab Pro and a laptop w/o CUDA) and some other reasons
+
+## ✏️ Other materials
+
+### Reports
+
+1. [March 2022 report at Computational Linguistics seminar](https://github.com/s1m0000n/multitask-transformers/blob/master/reports/march_2022_specsem/main.pdf)
+
+### Interesting stuff to read / implement
+
+1. [An Overview of Multi-Task Learning in Deep Neural Networks](https://ruder.io/multi-task/)
+2. [CS 330: Deep Multi-Task and Meta Learning](https://cs330.stanford.edu/)
+3. [Yu et al. Gradient Surgery for Multi-Task Learning. 2020](https://arxiv.org/abs/2001.06782)
+4. [Обучение универсальной модели NLU c BERT и Multitask Learning](https://habr.com/ru/company/sberdevices/blog/560748/) (a very inspiring (not very techical) article, which interested me and i decided to develop the ideas further in my research)
