@@ -123,6 +123,8 @@ class MultitaskModel(nn.Module):
         else:
             encoder_kwargs = kwargs.copy()
             head_kwargs = {}
+            if only_head is None:
+                only_head = set()
             for elem in only_head:
                 del encoder_kwargs[elem]
                 head_kwargs[elem] = kwargs[elem]
