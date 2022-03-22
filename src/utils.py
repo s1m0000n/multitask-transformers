@@ -132,3 +132,4 @@ def itercat(*iterables: Iterable[T]) -> Iterable[T]:
                 yield item
         else:
             yield iterable
+
