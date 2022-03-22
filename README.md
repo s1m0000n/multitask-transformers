@@ -76,7 +76,6 @@ for epoch_num in range(num_epochs):
 ```
 
 *: Imports before all other example code
-
 ```python
 import torch
 from datasets import load_dataset
@@ -100,11 +99,20 @@ from src.tokenizers import TokenizerConfig
 2. [Experiments with sum loss training](https://colab.research.google.com/drive/1q0Ob1eOmQSaja2cHWFoPwN28dO0id38K?usp=sharing)
 3. [Experiments with sum loss & custom heads](https://colab.research.google.com/drive/1UBPOriaxwOZf44kCArKmammOMNLrupOo?usp=sharing)
 
-## ✏️ Other materials
+### ✏️ Other materials
 
 ### Reports
 
 1. [March 2022 report at Computational Linguistics seminar](https://github.com/s1m0000n/multitask-transformers/blob/master/reports/march_2022_specsem/main.pdf)
+
+## Figured out stuff so far
+
+- The code is working (most of it, in most cases)
+- Converges with training on separate losses, converges better with summed loss
+- Excellent (near or SOTA) results are achievable
+- Tricks and unobvous stuff is required for this Frankenstein to learn something at a decent degree
+- More complicated heads are working as expected - `classification.NLinearsHead` is great, so interested in what heads with attention and more feed-forwards could do
+- I started with a bunch of really complicated tasks from (Russian) SuperGLUE, which actually require complex heads
 
 ## ⚡️ Supported Tasks
 
