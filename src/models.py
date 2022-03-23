@@ -1,6 +1,6 @@
 from typing import Any, Callable, Dict, Optional, TypeVar, Union, Set
 import torch.nn as nn
-from transformers import PreTrainedModel, PretrainedConfig, AutoConfig
+from transformers import PreTrainedModel, PretrainedConfig, AutoConfig, AutoModel
 from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAttentions, ModelOutput
 from dataclasses import dataclass
 
@@ -95,7 +95,7 @@ class HFMultitaskModel(PreTrainedModel):
 
 
 class MultitaskModel(nn.Module):
-    def __init__(self, encoder_path: str, task_heads: Dict[str, Union[HFHead, nn.Module]]) -> None:
+    def __init__(self, encoder_path: str, task_heads: Dict[str, Union[HFHead, nn.Module]], encoder_config_params: Optional[Dict[str, Any]] = None) -> None:
         super().__init__()
         hf_heads = {}
         module_heads = {}
@@ -107,12 +107,22 @@ class MultitaskModel(nn.Module):
             else:
                 raise TypeError("Wrong type for value in 'task_heads', "
                                 "must be an instance of 'HFHead' or 'torch.nn.Module'")
-        self.hf_model = HFMultitaskModel.create(validate_isinstance(encoder_path, str, "encoder_path"), hf_heads)
+        self.using_hf = len(hf_heads) > 0
+        if self.using_hf:
+            self.hf_model = HFMultitaskModel.create(validate_isinstance(encoder_path, str, "encoder_path"), hf_heads)
+        else:
+            if encoder_config_params is None:
+                encoder_config_params = {}
+            config = AutoConfig.from_pretrained(encoder_path, **encoder_config_params)
+            self.encoder_ = AutoModel.from_pretrained(encoder_path, config=config)
         self.module_heads = nn.ModuleDict(module_heads)
 
     @property
     def encoder(self):
-        return self.hf_model.encoder
+        if self.using_hf:
+            return self.hf_model.encoder
+        else:
+            return self.encoder_
 
     def is_hf(self, name: str) -> bool:
         return not (name in self.module_heads)
