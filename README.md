@@ -1,9 +1,9 @@
 # Multitask Transformers
 
 [![Open In Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1FCNOK7t3n39fqMF7vZNrU_2XVykEkwTz?usp=sharing)
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/s1m0000n/multitask-transformers/Pylint?label=pylint)
+![GitHub Workflow Status: pylint](https://img.shields.io/github/workflow/status/s1m0000n/multitask-transformers/Pylint?label=pylint)
 
-Open research project (started at MSU) about multitask Transformer-based language models and my 4th year graduation paper
+Open research project about multitask Transformer-based language models and my 4th year graduation paper
 
 Anyone interested in joining the research & contributing to the project is welcome! It's planned to release a paper on the results of the research (alongside graduation project), so I'd be happy to have coauthors. If you are interested, please contact me by email pogorelcevsa@gmail.com or in Telegram https://t.me/s1m00n 
 
@@ -13,7 +13,7 @@ Now training multitask BERT-like models is as easy as training a regular NN
 
 Example for 2 binary classification tasks from [Russian SuperGLUE](https://russiansuperglue.com)
 
-Now let's configure tasks in a declarative way (imports omitted here, but can be found below *)
+<!-- Now let's configure tasks in a declarative way (imports omitted here, but can be found below *) -->
 ```python
 rsg = "russian_super_glue"
 cfg = TokenizerConfig(max_length=512)
@@ -108,9 +108,31 @@ This project is all about NLP, particularly Transformers, especially BERT-like m
 
 ### Colab
 
+With pretrained model [DeepPavlov RuBERT base cased](https://huggingface.co/DeepPavlov/rubert-base-cased):
+
 1. [Experiments with regular training](https://colab.research.google.com/drive/1FCNOK7t3n39fqMF7vZNrU_2XVykEkwTz?usp=sharing)
 2. [Experiments with sum loss training](https://colab.research.google.com/drive/1q0Ob1eOmQSaja2cHWFoPwN28dO0id38K?usp=sharing)
 3. [Experiments with sum loss & custom heads](https://colab.research.google.com/drive/1UBPOriaxwOZf44kCArKmammOMNLrupOo?usp=sharing)
+
+With other pretrained Transformers for Russian:
+
+TODO
+
+#### Single task baselines (in progress)
+
+For classification tasks - `AutoModelForSequenceClassification`
+
+- Pretrained model: [DeepPavlov RuBERT base cased](https://huggingface.co/DeepPavlov/rubert-base-cased)
+- `transformers.AutoModelForClassification` head for classification tasks
+- Everything to defaults / standart, popular for the task
+- No special tricks - base solutions
+- Goal: have some ordinary scores to compare with (check whether multitasking helps / negative transfer)
+
+1. [Russian SuperGLUE DaNetQA](https://colab.research.google.com/drive/1NTNKRDOzJrfgp_EqgnNllZ1PTBpJ2dDa?usp=sharing)
+2. [Russian SuperGLUE TERRa](https://colab.research.google.com/drive/1O1VAgRVC4z8H_oI-YSdoWJKUg4gJZPW4?usp=sharing)
+3. [Twitter Sentiment](https://colab.research.google.com/drive/1Wqb2ERqYXnZ68xSDf5nttfvP7JxRtMG5?usp=sharing)
+4. [XNLI](https://colab.research.google.com/drive/1z0WBHyakEUupvDgXWoPc1JKYLUBmQNzc?usp=sharing)
+5. [Headline Cause](https://colab.research.google.com/drive/1H5pJQwEFMer9HpkJZ7mFNV8Wxj3sEbKu?usp=sharing)
 
 ## Figured out stuff so far
 
