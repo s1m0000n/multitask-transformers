@@ -69,6 +69,13 @@ def preprocess_danetqa(sample: Dict[str, Any]) -> Dict[str, str]:
     return {"input": f"{passage} {question}", "label": label}
 
 
+def preprocess_danetqa_input_pair(sample: Dict[str, Any]) -> Dict[str, str]:
+    passage = sample["passage"]
+    question = sample["question"]
+    label = sample["label"]
+    return {"input": (passage, question), "label": label}
+
+
 def preprocess_parus(sample: Dict[str, str]) -> Dict[str, Union[Tuple[str, str], str]]:
     """
     Preprocesses Russian SuperGLUE PARus sample for binary classification
