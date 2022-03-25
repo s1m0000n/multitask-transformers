@@ -10,6 +10,7 @@ import torch
 from datasets import DatasetDict
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn.modules.dropout import Dropout
 from transformers import AutoModelForSequenceClassification, AutoModel
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAttentions, SequenceClassifierOutput
@@ -60,6 +61,7 @@ class NLinearsHead(nn.Module):
             self,
             num_layers: int = 1,
             dropout_in: float = 0.1,
+            dropout_between: float = 0,
             output_size: int = 2,
             dim_emb: int = 768,
             linear_hidden_size: Optional[int] = None,
@@ -68,6 +70,7 @@ class NLinearsHead(nn.Module):
         """
         :param num_layers: Number of linear layers used, including input & output (in case of 1 - basic softmax classifier)
         :param dropout_in: Dropout rate applied to incomming embeddings
+        :param dropout_between: Dropout rate between linear layers
         :param output_size: Number of dimensions of ouputs (usually = number of classes)
         :param dim_emb: Embeddings shape (dimensions size)
         :param linear_hidden_size: Number of dimensions in linear layers
@@ -86,7 +89,8 @@ class NLinearsHead(nn.Module):
         else:
             validate_isinstance(linear_hidden_size, int, "linear_hidden_size")
 
-        self.dropout = nn.Dropout(dropout_in)
+        self.dropout_in = nn.Dropout(dropout_in)
+        self.dropout_between = nn.Dropout(validate_isinstance(dropout_between, float, "dropout_between"))
         self.layers = nn.ModuleList()
         if self.num_layers == 1:
             self.layers.append(nn.Linear(dim_emb, self.output_size))
@@ -108,13 +112,13 @@ class NLinearsHead(nn.Module):
         :param labels: Corresponding class labels for each sample
         """
         pooled_output = encoder_outputs[1]
-        x = self.dropout(pooled_output)
+        x = self.dropout_in(pooled_output)
 
         for i in range(self.num_layers - 1):
-            if self.activation_fun is None:
-                x = self.layers[i].forward(x)
-            else:
-                x = self.activation_fun(self.layers[i].forward(x))
+            x = self.layers[i].forward(x)
+            if self.activation_fun is not None:
+                x = self.activation_fun(x)
+            x = self.dropout_between.forward(x)
         logits = self.layers[self.num_layers - 1].forward(x)
 
         # Determining loss type & computing it
@@ -186,16 +190,22 @@ class NLinearsSequenceClassificationTask:
     preprocessor: Optional[Preprocessor] = None
     tokenizer_config: Optional[TokenizerConfig] = None
     dropout_in: float = 0.1
+    dropout_between: float = 0
     linear_hidden_size: Optional[int] = None
     activation_fun: Optional[Callable] = F.relu
 
     def to_task(self, model_path: str) -> Task:
+        """
+        Create a 'Task' instance, using model name / path to initialize
+        :param model_path: Model name or path for Hugging face Transformers initialization
+        """
         tokenizer_config = TokenizerConfig() if self.tokenizer_config is None else self.tokenizer_config
         return Task(
             name=self.name,
             head=NLinearsHead(
                 num_layers=self.num_layers,
                 dropout_in=self.dropout_in,
+                dropout_between=self.dropout_between,
                 output_size=self.num_labels,
                 # TODO: Replace this somehow, so that it does not require doing full model loading
                 dim_emb=AutoModel.from_pretrained(model_path).config.hidden_size,
