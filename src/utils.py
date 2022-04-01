@@ -16,24 +16,28 @@ def validate_isinstance(
         value: T,
         expected_type_s: Union[Type, Iterable[Type]],
         name: Optional[str] = None,
-        optional: bool = False
+        optional: bool = False,
+        validate: bool = True,
 ) -> T:
-    if optional and value is None:
-        return value
-
-    expected_types = expected_type_s if isinstance(expected_type_s, Iterable) else [expected_type_s, ]
-
-    # Checking if any matches & leaving if so
-    for expected_type in expected_types:
-        if isinstance(value, expected_type):
+    if validate:
+        if optional and value is None:
             return value
 
-    # Got here <=> is not matchable with expected types
-    actual_type = type(value)
-    index_repr = f"for value {value}" if name is None else f"of '{name}'"
-    type_repr = " | ".join(map(str, expected_types))
-    nullability = " or None" if optional else ""
-    raise TypeError(f"Wrong type '{actual_type}' {index_repr}, must be an instance of '{type_repr}'{nullability}")
+        expected_types = expected_type_s if isinstance(expected_type_s, Iterable) else [expected_type_s, ]
+
+        # Checking if any matches & leaving if so
+        for expected_type in expected_types:
+            if isinstance(value, expected_type):
+                return value
+
+        # Got here <=> is not matchable with expected types
+        actual_type = type(value)
+        index_repr = f"for value {value}" if name is None else f"of '{name}'"
+        type_repr = " | ".join(map(str, expected_types))
+        nullability = " or None" if optional else ""
+        raise TypeError(f"Wrong type '{actual_type}' {index_repr}, must be an instance of '{type_repr}'{nullability}")
+    else:
+        return value
 
 
 def flatten(
