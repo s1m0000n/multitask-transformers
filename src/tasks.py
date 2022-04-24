@@ -14,14 +14,12 @@ class Task:
     name: str
     head: Union[HFHead, nn.Module]
     data: Data
-    loss: Optional[Callable[[ModelOutput], Any]] = None
     compute_metrics: Optional[Callable[[Any], Dict[str, Any]]] = None
 
     def __post_init__(self) -> None:
         validate_isinstance(self.name, str, "name")
         validate_isinstance(self.head, [HFHead, nn.Module], "head")
         validate_isinstance(self.data, Data, "data")
-        validate_isinstance(self.loss, Callable, "loss", optional=True)
         validate_isinstance(self.compute_metrics, Callable, "compute_metrics", optional=True)
 
 
