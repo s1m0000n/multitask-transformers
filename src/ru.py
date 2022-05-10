@@ -11,9 +11,7 @@ import datasets
 import wget
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Dict, Union, Set
-from src.utils import split_index
 import pandas as pd
-
 from .utils import download, split_index
 
 
