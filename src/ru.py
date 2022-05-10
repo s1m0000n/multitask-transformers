@@ -245,7 +245,7 @@ lenta_topics = {
      'ЧМ-2014',
      'Экономика'
 }
-lenta_topics_mapping = dict(enumerate(lenta_topics))
+lenta_topics_mapping = {topic: i for i, topic in enumerate(lenta_topics)}
 
 def preprocess_lenta_topics(sample: Dict[str, Any], label_mapping: Optional[Dict[str, int]] = None) -> Dict[str, Any]:
     """
@@ -256,4 +256,8 @@ def preprocess_lenta_topics(sample: Dict[str, Any], label_mapping: Optional[Dict
     title = sample["title"]
     text = sample["text"]
     str_label = sample["topic"]
-    return {"label": label_mapping[str_label], "input": f"{title} {text}"}
+    if str_label in label_mapping:
+        label = label_mapping[str_label]
+    else:
+        label = len(label_mapping)
+    return {"label": label, "input": f"{title} {text}"}
