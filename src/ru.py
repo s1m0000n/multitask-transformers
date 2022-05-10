@@ -1,3 +1,6 @@
+"""
+Utils to load data for tasks with Russian 🇷🇺 texts
+"""
 import os
 import os.path
 import random
@@ -6,7 +9,6 @@ from typing import Optional, Dict, Any, Union, Tuple
 import corus
 import datasets
 import wget
-import os
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Dict, Union, Set
 from src.utils import split_index

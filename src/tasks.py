@@ -1,3 +1,6 @@
+"""
+Main data structures with validation & some logic to wrangle tasks
+"""
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, Set, Union, Optional
 
