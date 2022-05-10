@@ -198,7 +198,7 @@ class NFFClassificationTask:
     preprocessor: Optional[Preprocessor] = None
     tokenizer_config: Optional[TokenizerConfig] = None
     dropout_in: float = 0.1
-    dropout_between: float = 0
+    dropout_between: float = 0.0
     hidden_size: Optional[int] = None
     activation_fun: Optional[Callable] = F.relu
     validate: bool = True
@@ -212,8 +212,8 @@ class NFFClassificationTask:
             (self.metrics, Callable, "metrics", True),
             (self.preprocessor, Preprocessor, "preprocessor", True),
             (self.tokenizer_config, TokenizerConfig, "tokenizer_config", True),
-            (self.dropout_in, float, "dropout_in"),
-            (self.dropout_between, float, "dropout_between"),
+            (self.dropout_in, (int, float), "dropout_in"),
+            (self.dropout_between, (int, float), "dropout_between"),
             (self.hidden_size, int, "hidden_size", True),
             (self.activation_fun, Callable, "activation_fun", True),
         ], validate=self.validate)

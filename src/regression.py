@@ -68,7 +68,7 @@ class NFFRegressionTask:
     preprocessor: Optional[Preprocessor] = None
     tokenizer_config: Optional[TokenizerConfig] = None
     dropout_in: float = 0.1
-    dropout_between: float = 0
+    dropout_between: float = 0.0
     hidden_size: Optional[int] = None
     activation: Optional[Callable] = F.relu
 
