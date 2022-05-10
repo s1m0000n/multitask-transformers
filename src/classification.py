@@ -36,7 +36,7 @@ def classification_metrics(
     :param average: Averaging technique for N-class problems, N > 2
     """
     validate_isinstance(logits, np.ndarray, "logits", validate=validate)
-    validate_isinstance(labels, np.ndarraym, "labels", validate=validate)
+    validate_isinstance(labels, np.ndarray, "labels", validate=validate)
     validate_isinstance(
         average, str, "average", validate=validate,
         value_set={"micro", "macro", "weighted", "samples"}

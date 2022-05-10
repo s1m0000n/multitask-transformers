@@ -95,7 +95,7 @@ class MetricsLog:
         task_data = self.get(task)
         if len(task_data) < 0:
             raise IndexError("Task log is empty, so no logs available")
-        return self.get(task)[0].keys()
+        return task_data[0].keys()
 
     def plot(
         self,
