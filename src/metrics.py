@@ -1,8 +1,7 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, Set, Iterable
-import numpy as np§
+import numpy as np
 import matplotlib.pyplot as plt
-
-from src.utils import validate_isinstance
+from .utils import validate_isinstance
 from dataclasses import dataclass
 
 
@@ -36,20 +35,20 @@ class PlotConfig:
         return PlotConfig(**dict(self.__dict__, **params))
 
 
-class MultitaskMetricsLog:
+class MetricsLog:
     def __init__(self, validate: bool = True) -> None:
         self.data: Dict[str, List[Dict[str, Any]]] = {}
         self.meta = {}
         self.validate = validate
 
-    def add(self, task: str, metrics: Dict[str, Any]) -> 'MultitaskMetricsLog':
+    def add(self, task: str, metrics: Dict[str, Any]) -> 'MetricsLog':
         if validate_isinstance(task, str, "task", validate=self.validate) not in self.data:
             self.data[task] = [metrics, ]
         else:
             self.data[task].append(metrics)
         return self
 
-    def add_meta(self, metric_name: str, value: Any) -> 'MultitaskMetricsLog':
+    def add_meta(self, metric_name: str, value: Any) -> 'MetricsLog':
         if validate_isinstance(metric_name, str, "metric_name", validate=self.validate) not in self.meta:
             self.meta[metric_name] = [value, ]
         else:

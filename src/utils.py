@@ -163,7 +163,7 @@ def split_index(length: int,
     :return: Dictionary of parts with indices str -> np.array
     """
     if splits is None:
-        splits = {'train': 0.8, 'validation': 0.1, 'test': 0.1}
+        splits = {'train': 0.7, 'validation': 0.15, 'test': 0.15}
     else:
         vals = splits.values()
         assert all(map(lambda x: isinstance(x, float), vals)), "expected float split ratios"
