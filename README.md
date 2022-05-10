@@ -100,7 +100,7 @@ This project is all about NLP, particularly Transformers, especially BERT-like m
 3. Multitask learning as a way of "helping" tasks with small datasets
 4. Solving optimization challenges & negative transfer for such complicated models
 5. Studying perspective head architectures for complex language understanding tasks
-6. Learn & become stronger in Deep Learning, NLP, Multitask Learning (personal)
+6. Learn & become stronger in Deep Learning, NLP, Multitask Learning
 7. Just have some fun
 
 
