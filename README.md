@@ -13,19 +13,18 @@ Now training multitask BERT-like models is as easy as training a regular NN
 
 Example for 2 binary classification tasks from [Russian SuperGLUE](https://russiansuperglue.com)
 
-<!-- Now let's configure tasks in a declarative way (imports omitted here, but can be found below *) -->
 ```python
 rsg = "russian_super_glue"
 cfg = TokenizerConfig(max_length=512)
 encoder_path = "DeepPavlov/rubert-base-cased"
 tasks = Tasks([
-  SequenceClassificationTask(
+  ClassificationTask(
     name="danetqa",
     dataset_dict=load_dataset(rsg, "danetqa"),
     preprocessor=Preprocessor([preprocess_danetqa]),
     tokenizer_config=cfg,
   ),
-  SequenceClassificationTask(
+  ClassificationTask(
     name="terra",
     dataset_dict=load_dataset(rsg, "terra"),
     preprocessor=Preprocessor([NLIPreprocess()]),
@@ -76,13 +75,14 @@ for epoch_num in range(num_epochs):
 ```
 
 *: Imports before all other example code
+
 ```python
 import torch
 from datasets import load_dataset
 from tqdm.auto import tqdm
 from transformers import AdamW, get_scheduler
 
-from src.classification import SequenceClassificationTask
+from src.classification import ClassificationTask
 from src.dataloaders import MultitaskBatchSampler
 from src.models import MultitaskModel
 from src.preprocessing import Preprocessor, NLIPreprocess
@@ -140,7 +140,7 @@ For classification tasks - `AutoModelForSequenceClassification`
 - Converges with training on separate losses, converges better with summed loss
 - Excellent (near or SOTA) results are achievable
 - Tricks and unobvous stuff is required for this Frankenstein to learn something at a decent degree
-- More complicated heads are working as expected - `classification.NLinearsHead` is great, so interested in what heads with attention and more feed-forwards could do
+- More complicated heads are working as expected - `classification.NFeedForwardsHead` is great, so interested in what heads with attention and more feed-forwards could do
 - I started with a bunch of really complicated tasks from (Russian) SuperGLUE, which actually require complex heads
 
 ## ⚡️ Supported Tasks
@@ -217,10 +217,6 @@ Some great stuff is just out of scope for the research I'm doing right now, sorr
 For better or worse, these are some tasks, that I'm not currently interested in and not implementing myself, because of very limited time, lack of resources (all I have is a Colab Pro and a laptop w/o CUDA) and some other reasons
 
 ## ✏️ Other materials
-
-### Reports
-
-1. [March 2022 report at Computational Linguistics seminar](https://github.com/s1m0000n/multitask-transformers/blob/master/reports/march_2022_specsem/main.pdf)
 
 ### Interesting stuff to read / implement
 

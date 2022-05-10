@@ -1,4 +1,4 @@
-from typing import Optional, TypeVar, Type, Iterable, Any, Callable, Iterator, Dict, Union
+from typing import Optional, TypeVar, Type, Iterable, Any, Callable, Iterator, Dict, Union, Tuple
 from operator import lt
 
 from functools import partial
@@ -18,26 +18,82 @@ def validate_isinstance(
         name: Optional[str] = None,
         optional: bool = False,
         validate: bool = True,
+        value_set: Optional[Iterable[T]] = None,
+        check: Optional[Callable[[T], bool]] = None
 ) -> T:
-    if validate:
-        if optional and value is None:
+    if (not validate) \
+            or (optional and value is None) \
+            or ((check is not None) and check(value)) \
+            or ((value_set is not None) and value in set(value_set)):
+        return value
+
+    expected_types = expected_type_s if isinstance(expected_type_s, Iterable) else [expected_type_s, ]
+
+    # Checking if any matches & leaving if so
+    for expected_type in expected_types:
+        if isinstance(value, expected_type):
             return value
 
-        expected_types = expected_type_s if isinstance(expected_type_s, Iterable) else [expected_type_s, ]
+    # Got here <=> is not matchable with expected types
+    actual_type = type(value)
+    index_repr = f"for value {value}" if name is None else f"of '{name}'"
+    type_repr = " | ".join(map(str, expected_types))
+    nullability = " or None" if optional else ""
+    raise TypeError(
+        f"Wrong type '{actual_type}' {index_repr}, must be an instance of '{type_repr}'{nullability}" +
+        ("" if value_set is None else f", and be in {value_set}") +
+        ("" if check is None else ", and pass a check defined in fun 'check(x: T) -> bool'")
+    )
 
-        # Checking if any matches & leaving if so
-        for expected_type in expected_types:
-            if isinstance(value, expected_type):
-                return value
 
-        # Got here <=> is not matchable with expected types
-        actual_type = type(value)
-        index_repr = f"for value {value}" if name is None else f"of '{name}'"
-        type_repr = " | ".join(map(str, expected_types))
-        nullability = " or None" if optional else ""
-        raise TypeError(f"Wrong type '{actual_type}' {index_repr}, must be an instance of '{type_repr}'{nullability}")
-    else:
-        return value
+def validate_isinstance_multi(
+        samples: Iterable[Union[
+            Tuple[T, Union[Type, Iterable[Type]]],
+            Tuple[T, Union[Type, Iterable[Type]], str],
+            Tuple[T, Union[Type, Iterable[Type]], str, bool],
+            Tuple[T, Union[Type, Iterable[Type]], str, bool, Iterable[T]],
+            Tuple[T, Union[Type, Iterable[Type]], str, bool, Iterable[T], Callable[[T], bool]],
+            Dict[str, Any]
+        ]],
+        validate: bool = True
+) -> None:
+    if validate:
+        for sample in samples:
+            if isinstance(sample, tuple):
+                if len(sample) < 2:
+                    raise IndexError(
+                        "Tuple must be at least of size 2: "
+                        "validated value, it's expected type"
+                    )
+                if len(sample) == 2:
+                    validate_isinstance(sample[0], sample[1])
+                    return
+                elif len(sample) == 3:
+                    validate_isinstance(sample[0], sample[1], sample[2])
+                    return
+                elif len(sample) == 4:
+                    validate_isinstance(
+                        sample[0], sample[1], sample[2],
+                        sample[3]
+                    )
+                elif len(sample) == 5:
+                    validate_isinstance(
+                        sample[0], sample[1], sample[2],
+                        sample[3],
+                        value_set=sample[4]
+                    )
+                    return
+                else:
+                    validate_isinstance(
+                        sample[0], sample[1], sample[2],
+                        sample[3],
+                        value_set=sample[4],
+                        check=sample[5]
+                    )
+            elif isinstance(sample, dict):
+                validate_isinstance(**sample)
+            else:
+                raise TypeError("Expected elements of 'samples to be of type tuple or dict'")
 
 
 def flatten(
@@ -136,4 +192,3 @@ def itercat(*iterables: Iterable[T]) -> Iterable[T]:
                 yield item
         else:
             yield iterable
-

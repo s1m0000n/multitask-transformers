@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, Set, Union, Optional
 
 import torch.nn as nn
-from transformers.file_utils import ModelOutput
 
 from .models import MultitaskModel, HFHead
 from .data import Data
@@ -20,22 +19,21 @@ class Task:
         validate_isinstance(self.name, str, "name")
         validate_isinstance(self.head, [HFHead, nn.Module], "head")
         validate_isinstance(self.data, Data, "data")
-        validate_isinstance(self.compute_metrics, Callable, "compute_metrics", optional=True)
+        validate_isinstance(self.compute_metrics, Callable, "metrics", optional=True)
 
 
 class Tasks:
-    def __init__(self, tasks: Iterable[Any], model_path: Optional[str] = None) -> None:
+    def __init__(self, tasks: Iterable[Any], encoder_path: str) -> None:
         self.tasks = {}
+        self.encoder_path = validate_isinstance(encoder_path, str, "encoder_path")
         for task in validate_isinstance(tasks, Iterable, "tasks"):
             if not isinstance(task, Task):
                 to_task = getattr(task, "to_task", None)
                 if to_task is None:
                     raise AttributeError("Tasks passed to 'tasks' must be either instances of 'Task', "
                                          "or implement 'to_task(model_path: str)' method. Got element "
-                                         "which failed for both condition checks")
-                if model_path is None:
-                    raise TypeError("'model_path' must be specified, if tasks need to be configured with .to_task()")
-                task = to_task(validate_isinstance(model_path, str, "model_path"))
+                                         "which failed both condition checks")
+                task = to_task(self.encoder_path)
                 if not isinstance(task, Task):
                     raise TypeError("'to_task' must return a 'Task' instance")
             validate_isinstance(task, Task, "task")
@@ -65,7 +63,7 @@ class Tasks:
     def data(self) -> Dict[str, Data]:
         return {name: self[name].data for name in self.names}
 
-    def model(self, encoder_path: str) -> MultitaskModel:
-        return MultitaskModel(encoder_path, self.heads)
+    def model(self) -> MultitaskModel:
+        return MultitaskModel(self.encoder_path, self.heads)
 
 

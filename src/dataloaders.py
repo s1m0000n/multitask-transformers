@@ -51,27 +51,6 @@ class TaskBatch:
 
 @dataclass
 class MultitaskBatchSampler:
-    """
-    Data loader alternative for multitask learning, yielding everything necessary
-    for running the data through the base model & task head with loss & metrics
-
-    Meant to be used for training on mixed batches from all tasks, optimizing on a single
-    task per batch (computing single loss, and updating encoder + tasks's head)
-
-    :param tasks: Some aggregated tasks
-
-    :param part: General part name for unfilled in 'parts'
-    :param parts: Mapping task name -> part name
-
-    :param batch_size: General batch size for unfilled in 'batch_sizes'
-    :param batch_sizes: Mapping task name -> batch size
-
-    :param shuffle_data: General shuffling data for unfilled in 'shuffle_task_data'
-    :param shuffle_task_data: Mapping task name -> shuffle data?
-
-    :param shuffle_batches: Determines whether batches are shuffled (batches of all tasks in set)
-    :param columns: Columns to be prepared for training with pytorch (* => torch.Tensor)
-    """
     datasets: Dict[str, Data]
     part: Optional[str] = None
     parts: Optional[Dict[str, str]] = None
@@ -179,7 +158,7 @@ class MultitaskBatchSampler:
 
 
 @dataclass
-class MultitaskMetabatchSampler:
+class MetabatchSampler:
     datasets: Dict[str, Data]
     part: Optional[str] = None
     parts: Optional[Dict[str, str]] = None
@@ -262,7 +241,7 @@ class MultitaskMetabatchSampler:
     def __len__(self):
         return self.num_batches_per_task[self.target_task]
 
-    def __iter__(self) -> 'MultitaskMetabatchSampler':
+    def __iter__(self) -> 'MetabatchSampler':
         self.data_loaders = {name: iter(dl) for name, dl in self.data_loaders.items()}
         return self
 

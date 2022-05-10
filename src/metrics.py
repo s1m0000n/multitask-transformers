@@ -1,5 +1,5 @@
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, Set, Iterable
-import numpy as np
+import numpy as np§
 import matplotlib.pyplot as plt
 
 from src.utils import validate_isinstance
@@ -68,15 +68,14 @@ class MultitaskMetricsLog:
         task_data = self.data[validate_isinstance(task, str, "task")]
         if metrics is None:
             return task_data
-        elif isinstance(metrics, str):
+        if isinstance(metrics, str):
             return np.array([d[metrics] for d in task_data])
-        elif isinstance(metrics, (list, tuple, set)):
+        if isinstance(metrics, (list, tuple, set)):
             result = {}
             for metric in metrics:
                 result[metric] = self.get(task, metric)
             return result
-        else:
-            raise TypeError("Wrong type for 'metrics', must be an instance of str | (list | tuple | set)[str] | None")
+        raise TypeError("Wrong type for 'metrics', must be an instance of str | (list | tuple | set)[str] | None")
 
     def get_meta(
             self,
@@ -84,13 +83,12 @@ class MultitaskMetricsLog:
     ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
         if isinstance(metrics, str):
             return np.array(self.meta[metrics])
-        elif isinstance(metrics, (list, tuple, set)):
+        if isinstance(metrics, (list, tuple, set)):
             result = {}
             for metric in metrics:
                 result[metric] = self.get_meta(metric)
             return result
-        else:
-            raise TypeError("Wrong type for 'metrics', must be an instance of str | (list | tuple | set)[str]")
+        raise TypeError("Wrong type for 'metrics', must be an instance of str | (list | tuple | set)[str]")
 
     def metrics(self, task: Optional[str] = None) -> Iterable[str]:
         if task is None:
@@ -107,8 +105,8 @@ class MultitaskMetricsLog:
     ) -> None:
         plot_config = PlotConfig() if plot_config is None else plot_config
         if len(metric_configs) == 0:
-            metric_configs = [MetricConfig(metric, task) for task in self.tasks for metric in self.metrics(task)]
-            metric_configs += [MetricConfig(metric) for metric in self.metrics()]
+            configs = [MetricConfig(metric, task) for task in self.tasks for metric in self.metrics(task)]
+            configs += [MetricConfig(metric) for metric in self.metrics()]
         for cfg in metric_configs:
             y = self.get_meta(cfg.metric) if cfg.task is None else self.get(cfg.task, cfg.metric)
             plt.plot(

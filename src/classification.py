@@ -2,15 +2,14 @@
 Tools for solving sequence clasification tasks
 """
 
-from dataclasses import dataclass
-from typing import Optional, Callable, Dict
+from dataclasses import dataclass, field
+from typing import Optional, Callable, Dict, Any
 
 import numpy as np
 import torch
 from datasets import DatasetDict
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.modules.dropout import Dropout
 from transformers import AutoModelForSequenceClassification, AutoModel
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from transformers.modeling_outputs import BaseModelOutputWithPoolingAndCrossAttentions, SequenceClassifierOutput
@@ -20,13 +19,14 @@ from .models import HFHead
 from .preprocessing import Preprocessor
 from .tasks import Task
 from .tokenizers import TokenizerConfig
-from .utils import validate_isinstance
+from .utils import validate_isinstance, validate_isinstance_multi
 
 
-def sequence_classification_compute_metrics(
-    logits: np.ndarray, 
-    labels: np.ndarray, 
-    average: Optional[str] = None
+def classification_metrics(
+        logits: np.ndarray,
+        labels: np.ndarray,
+        average: Optional[str] = None,
+        validate: bool = True
 ) -> Dict[str, float]:
     """
     Computing a set of simple classic metrics for classification tasks
@@ -35,6 +35,12 @@ def sequence_classification_compute_metrics(
     :param labels: Corresponding class labels for each sample
     :param average: Averaging technique for N-class problems, N > 2
     """
+    validate_isinstance(logits, np.ndarray, "logits", validate=validate)
+    validate_isinstance(labels, np.ndarraym, "labels", validate=validate)
+    validate_isinstance(
+        average, str, "average", validate=validate,
+        value_set={"micro", "macro", "weighted", "samples"}
+    )
     predictions = np.argmax(logits, axis=-1)
     if average is None:
         num_labels = len(np.unique(labels))
@@ -52,7 +58,7 @@ def sequence_classification_compute_metrics(
     }
 
 
-class NLinearsHead(nn.Module):
+class NFeedForwardsHead(nn.Module):
     """
     Same implementation of classifier as in 'transformers', but using N linear layers
     """
@@ -65,7 +71,8 @@ class NLinearsHead(nn.Module):
             output_size: int = 2,
             dim_emb: int = 768,
             linear_hidden_size: Optional[int] = None,
-            activation_fun: Optional[Callable] = F.relu
+            activation_fun: Optional[Callable] = F.relu,
+            validate: bool = True
     ) -> None:
         """
         :param num_layers: Number of linear layers used, including input & output (in case of 1 - basic softmax classifier)
@@ -78,8 +85,8 @@ class NLinearsHead(nn.Module):
         """
         super().__init__()
 
-        self.output_size = validate_isinstance(output_size, int, "output_size")
-        self.num_layers = validate_isinstance(num_layers, int, "num_layers")
+        self.output_size = validate_isinstance(output_size, int, "output_size", validate=validate)
+        self.num_layers = validate_isinstance(num_layers, int, "num_layers", validate=validate)
         if self.num_layers < 1:
             raise ValueError("'num_layers' must be >= 1")
         validate_isinstance(dropout_in, float, "dropout")
@@ -87,7 +94,7 @@ class NLinearsHead(nn.Module):
         if linear_hidden_size is None:
             linear_hidden_size = dim_emb
         else:
-            validate_isinstance(linear_hidden_size, int, "linear_hidden_size")
+            validate_isinstance(linear_hidden_size, int, "hidden_size")
 
         self.dropout_in = nn.Dropout(dropout_in)
         self.dropout_between = nn.Dropout(validate_isinstance(dropout_between, float, "dropout_between"))
@@ -127,7 +134,8 @@ class NLinearsHead(nn.Module):
             if self.output_size == 1:
                 # regression
                 loss_fun = nn.MSELoss()
-                loss = loss_fun(logits.squeeze(), labels.squeeze()) if self.output_size == 1 else loss_fun(logits, labels)
+                loss = loss_fun(logits.squeeze(), labels.squeeze()) if self.output_size == 1 else loss_fun(logits,
+                                                                                                           labels)
             elif self.output_size > 1 and (labels.dtype == torch.long or labels.dtype == torch.int):
                 # single label classification
                 loss = nn.CrossEntropyLoss()(logits.view(-1, self.output_size), labels.view(-1))
@@ -145,7 +153,7 @@ class NLinearsHead(nn.Module):
 
 
 @dataclass
-class SequenceClassificationTask:
+class ClassificationTask:
     """
     Default sequence classification implementation, based on transformers.AutoModelForSequenceClassification,
     which adds a linear layer <model_outputs> -> <num_classes> with dropout and softmax on top
@@ -154,7 +162,7 @@ class SequenceClassificationTask:
     name: str
     dataset_dict: DatasetDict
     num_labels: int = 2
-    compute_metrics: Optional[Callable] = sequence_classification_compute_metrics
+    metrics: Optional[Callable] = classification_metrics
     preprocessor: Optional[Preprocessor] = None
     tokenizer_config: Optional[TokenizerConfig] = None
 
@@ -171,12 +179,12 @@ class SequenceClassificationTask:
                 configured_tokenizer=tokenizer_config.make_configured_tokenizer(model_path),
                 preprocessor=self.preprocessor
             ),
-            compute_metrics=self.compute_metrics
+            compute_metrics=self.metrics
         )
 
 
 @dataclass
-class NLinearsSequenceClassificationTask:
+class NFFClassificationTask:
     """
     Default sequence classification implementation, based on transformers.AutoModelForSequenceClassification,
     which adds a linear layer <model_outputs> -> <num_classes> with dropout and softmax on top
@@ -186,13 +194,29 @@ class NLinearsSequenceClassificationTask:
     dataset_dict: DatasetDict
     num_layers: int = 3
     num_labels: int = 2
-    compute_metrics: Optional[Callable] = sequence_classification_compute_metrics
+    metrics: Optional[Callable] = classification_metrics
     preprocessor: Optional[Preprocessor] = None
     tokenizer_config: Optional[TokenizerConfig] = None
     dropout_in: float = 0.1
     dropout_between: float = 0
-    linear_hidden_size: Optional[int] = None
+    hidden_size: Optional[int] = None
     activation_fun: Optional[Callable] = F.relu
+    validate: bool = True
+
+    def __post_init__(self) -> None:
+        validate_isinstance_multi([
+            (self.name, str, "name"),
+            (self.dataset_dict, DatasetDict, "dataset_dict"),
+            (self.num_layers, int, "num_layers"),
+            (self.num_labels, int, "num_labels"),
+            (self.metrics, Callable, "metrics", True),
+            (self.preprocessor, Preprocessor, "preprocessor", True),
+            (self.tokenizer_config, TokenizerConfig, "tokenizer_config", True),
+            (self.dropout_in, float, "dropout_in"),
+            (self.dropout_between, float, "dropout_between"),
+            (self.hidden_size, int, "hidden_size", True),
+            (self.activation_fun, Callable, "activation_fun", True),
+        ], validate=self.validate)
 
     def to_task(self, model_path: str) -> Task:
         """
@@ -202,14 +226,14 @@ class NLinearsSequenceClassificationTask:
         tokenizer_config = TokenizerConfig() if self.tokenizer_config is None else self.tokenizer_config
         return Task(
             name=self.name,
-            head=NLinearsHead(
+            head=NFeedForwardsHead(
                 num_layers=self.num_layers,
                 dropout_in=self.dropout_in,
                 dropout_between=self.dropout_between,
                 output_size=self.num_labels,
                 # TODO: Replace this somehow, so that it does not require doing full model loading
                 dim_emb=AutoModel.from_pretrained(model_path).config.hidden_size,
-                linear_hidden_size=self.linear_hidden_size,
+                linear_hidden_size=self.hidden_size,
                 activation_fun=self.activation_fun
             ),
             data=Data(
@@ -217,5 +241,5 @@ class NLinearsSequenceClassificationTask:
                 configured_tokenizer=tokenizer_config.make_configured_tokenizer(model_path),
                 preprocessor=self.preprocessor
             ),
-            compute_metrics=self.compute_metrics
+            compute_metrics=self.metrics
         )
