@@ -218,3 +218,12 @@ corus_datasets = {
         )
     ),
 }
+
+def preprocess_lenta2_topics(sample: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Prepares data for classification (predicting topics of texts)
+    :param sample: dict representation of one sample from dataset
+    """
+    title = sample["title"]
+    text = sample["text"]
+    return {"label": sample["topic"], "input": f"{title} {text}"}
