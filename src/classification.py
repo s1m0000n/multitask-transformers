@@ -2,8 +2,8 @@
 Tools for solving sequence clasification tasks
 """
 
-from dataclasses import dataclass, field
-from typing import Optional, Callable, Dict, Any
+from dataclasses import dataclass
+from typing import Optional, Callable, Dict
 
 import numpy as np
 import torch

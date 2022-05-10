@@ -179,8 +179,8 @@ Tasks which have everything necessary to start training with the following "batt
 ### 📦 BYO Data
 
 - NLI tasks (`NLIPreprocessor` is quite generalizable with configurable field names)
-- Sequence classification tasks (no obvious way to generalize preprocessing (for now))
-- Tasks which can be casted to sequence classification
+- Sequence classification tasks (no obvious way to generalize preprocessing (for now)) & the ones that can be solved as classification
+- Regression tasks & the ones that can be solved as regression
 
 **Description**
 
@@ -193,17 +193,6 @@ Tasks, which are supported on model level, but do not have implemented preproces
 - **Automated Task Class** which casts to `Task` using `to_task()` method
 
 
-### 📈 In progress
-
-#### Other tasks for Russian
-
-- Lenta.ru classification (https://github.com/yutkin/Lenta.Ru-News-Dataset)
-
-### 🗓 Planned
-
-#### Other tasks for Russian
-- SberQUAD (https://arxiv.org/abs/1912.09723)
-
 ### 🤷 Not going to implement in near future
 
 - Generational tasks (not making yet another super duper GPT-100500)
@@ -214,7 +203,7 @@ Tasks, which are supported on model level, but do not have implemented preproces
 
 Some great stuff is just out of scope for the research I'm doing right now, sorry for that
 
-For better or worse, these are some tasks, that I'm not currently interested in and not implementing myself, because of very limited time, lack of resources (all I have is a Colab Pro and a laptop w/o CUDA) and some other reasons
+For better or worse, these are some tasks, that I'm not currently interested in and not implementing myself, because of very limited time, lack of resources (all I have is a Colab and a laptop w/o CUDA) and some other reasons
 
 ## ✏️ Other materials
 
