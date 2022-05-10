@@ -219,11 +219,41 @@ corus_datasets = {
     ),
 }
 
-def preprocess_lenta2_topics(sample: Dict[str, Any]) -> Dict[str, Any]:
+lenta_topics = {
+    '',
+    '69-я параллель',
+     'Библиотека',
+     'Бизнес',
+     'Бывший СССР',
+     'Дом',
+     'Из жизни',
+     'Интернет и СМИ',
+     'Крым',
+     'Культпросвет ',
+     'Культура',
+     'Легпром',
+     'МедНовости',
+     'Мир',
+     'Наука и техника',
+     'Оружие',
+     'Путешествия',
+     'Россия',
+     'Силовые структуры',
+     'Сочи',
+     'Спорт',
+     'Ценности',
+     'ЧМ-2014',
+     'Экономика'
+}
+lenta_topics_mapping = dict(enumerate(lenta_topics))
+
+def preprocess_lenta_topics(sample: Dict[str, Any], label_mapping: Optional[Dict[str, int]] = None) -> Dict[str, Any]:
     """
     Prepares data for classification (predicting topics of texts)
     :param sample: dict representation of one sample from dataset
     """
+    label_mapping = label_mapping if label_mapping else lenta_topics_mapping
     title = sample["title"]
     text = sample["text"]
-    return {"label": sample["topic"], "input": f"{title} {text}"}
+    str_label = sample["topic"]
+    return {"label": label_mapping[str_label], "input": f"{title} {text}"}
