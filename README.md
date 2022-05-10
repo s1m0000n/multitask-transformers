@@ -159,9 +159,18 @@ DaNetQA solution is planned to be developed further, as a goal of trying to use 
 - [PARus](https://russiansuperglue.com/tasks/task_info/PARus)
 - [TERRa](https://russiansuperglue.com/tasks/task_info/TERRa)
 
+#### Corus datasets
+
+Now `ru.py` is massively extended with support for loading datasets using
+[corus package of Natasha project](https://github.com/natasha/corus). `corus` implements some
+loaders for a lot of popular russian datasets, while being a little inconvinient
+to use, because you have to manually download datasets & load them using different funcs. In `ru.py` were implemented data classes to support this features of
+`corus` & adapt them to use with `datasets` library. Also, automatic downloading
+is also here along with a dataset splitter & declarative configurations (which we all like, I hope).
+
 #### Other tasks for Russian
 
-- Russian part of XNLI
+- [Russian part of XNLI](https://github.com/facebookresearch/XNLI)
 - [Twitter sentiment classification](https://study.mokoron.com/)
 - [Headline Cause](https://huggingface.co/datasets/IlyaGusev/headline_cause)
 
