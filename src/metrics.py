@@ -17,7 +17,7 @@ class MetricConfig:
     @property
     def label(self) -> str:
         task = "meta" if self.task is None else self.task
-        return self.make_legend_label(self.task, self.metric)
+        return self.make_legend_label(task, self.metric)
 
     def copy(self, **params):
         return MetricConfig(**dict(self.__dict__, **params))
@@ -68,7 +68,7 @@ class MetricsLog:
         if metrics is None:
             return task_data
         if isinstance(metrics, str):
-            return np.array([d[metrics] for d in task_data])
+            return np.array([d[metrics] for d in task_data if metrics in d])
         if isinstance(metrics, (list, tuple, set)):
             result = {}
             for metric in metrics:
