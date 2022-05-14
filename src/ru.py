@@ -12,10 +12,10 @@ import wget
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Dict, Union, Set
 import pandas as pd
-from .utils import download, split_index
+from .utils import download, split_index, take_part
 
 
-# TODO: get rid of not that necessary pandas (=> remove another dependency)
+# TODO: get rid of not that necessary pandas (=> remove dependency)
 def load_mokoron(positive_url: str = 'https://www.dropbox.com/s/fnpq3z4bcnoktiv/positive.csv?dl=1',
                  negative_url: str = 'https://www.dropbox.com/s/r6u59ljhhjdg6j0/negative.csv?dl=1',
                  splits: Optional[Dict[str, float]] = None, shuffle: bool = True,
@@ -151,7 +151,7 @@ class CorusDataset:
         file_path = self.actual_path if file_path is None else file_path
         return self.corus_func(self.actual_path)
     
-    def to_dataset(self, corus_data: Any) -> datasets.Dataset:
+    def to_dataset(self, corus_data: Any, part: float = 1.0, shuffle: bool = True) -> datasets.Dataset:
         # TODO: replace with memory friendly & safe stuff
         columns = {}
         for record in corus_data:
@@ -160,7 +160,7 @@ class CorusDataset:
                     columns[field].append(value)
                 else:
                     columns[field] = [value]
-        return datasets.Dataset.from_dict(columns)
+        return take_part(datasets.Dataset.from_dict(columns), part=part, shuffle=shuffle)
     
     def to_dataset_dict(
         self, 
@@ -181,11 +181,12 @@ class CorusDataset:
         shuffle: bool = True,
         cache_path: str = "dataset_cache/corus", 
         force_redownload: bool = False,
+        part: float = 1.0,
     ) -> Union[datasets.Dataset, datasets.DatasetDict]:
         self.download(cache_path, force_redownload)
-        dataset = self.to_dataset(self.load_corus())
+        dataset = self.to_dataset(self.load_corus(), part=part, shuffle=shuffle)
         if make_splits:
-            return self.to_dataset_dict(dataset, splits, shuffle)
+            return self.to_dataset_dict(dataset, splits)
         return dataset
 
 # TODO: move stuff like this to some yaml
@@ -247,17 +248,17 @@ lenta_topics = {
 }
 lenta_topics_mapping = {topic: i for i, topic in enumerate(lenta_topics)}
 
-def preprocess_lenta_topics(sample: Dict[str, Any], label_mapping: Optional[Dict[str, int]] = None) -> Dict[str, Any]:
+def preprocess_lenta_topics(sample: Dict[str, Any], topic2label: Optional[Dict[str, int]] = None) -> Dict[str, Any]:
     """
     Prepares data for classification (predicting topics of texts)
     :param sample: dict representation of one sample from dataset
     """
-    label_mapping = label_mapping if label_mapping else lenta_topics_mapping
+    topic2label = topic2label if topic2label else lenta_topics_mapping
     title = sample["title"]
     text = sample["text"]
     str_label = sample["topic"]
-    if str_label in label_mapping:
-        label = label_mapping[str_label]
+    if str_label in topic2label:
+        label = topic2label[str_label]
     else:
-        label = len(label_mapping)
+        label = len(topic2label)
     return {"label": label, "input": f"{title} {text}"}

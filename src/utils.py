@@ -1,11 +1,21 @@
-from typing import Optional, TypeVar, Type, Iterable, Any, Callable, Iterator, Dict, Union, Tuple
-from operator import lt
-
 from functools import partial
-
-import os
-
 import itertools
+from operator import lt
+import os
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Iterator,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
+
+from datasets import Dataset
 import numpy as np
 import requests
 
@@ -192,3 +202,12 @@ def itercat(*iterables: Iterable[T]) -> Iterable[T]:
                 yield item
         else:
             yield iterable
+
+
+def take_part(dataset: Dataset, part: float = 1.0, shuffle: bool = True):
+    l = len(dataset)
+    index = np.arange(0, l)
+    if shuffle:
+        np.random.shuffle(index)
+    index_part = index[:int(l * part)]
+    return dataset.select(index_part)
